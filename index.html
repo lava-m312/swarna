@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Swarna's Unisex Saloon & Spa — Staff Portal</title>
+<meta name="description" content="Swarna's Unisex Saloon and Spa — Staff management portal for Admin and Receptionist login.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+<div id="toast-container"></div>
+
+<!-- ===== SPLASH SCREEN ===== -->
+<div id="splash" class="screen active">
+  <div class="splash-bg-particles">
+    <div class="particle p1"></div>
+    <div class="particle p2"></div>
+    <div class="particle p3"></div>
+    <div class="particle p4"></div>
+  </div>
+  <div class="splash-content">
+    <div class="splash-logo-container">
+      <div class="splash-logo-glow"></div>
+      <img src="assets/logo.jpg" alt="Swarna's Unisex Saloon and Spa" class="splash-logo-img" id="splash-logo">
+    </div>
+    <div class="splash-tagline">Staff Management Portal</div>
+    <div class="splash-loader">
+      <div class="splash-loader-bar" id="splash-loader-bar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ROLE SELECTION / LOGIN PAGE ===== -->
+<div id="role-select" class="screen">
+  <div class="role-page-bg">
+    <div class="role-page-particle rp1"></div>
+    <div class="role-page-particle rp2"></div>
+    <div class="role-page-particle rp3"></div>
+  </div>
+  <div class="role-page-content">
+    <!-- Header -->
+    <div class="role-header">
+      <img src="assets/logo.jpg" alt="Swarna's Logo" class="role-header-logo">
+      <div class="role-header-text">
+        <h1 class="role-header-title serif">Swarna's Unisex Saloon & Spa</h1>
+        <p class="role-header-sub">Select your staff login account to continue</p>
+      </div>
+    </div>
+
+    <!-- Dual Login Cards -->
+    <div class="login-cards-wrapper">
+
+      <!-- ADMIN LOGIN CARD -->
+      <div class="login-card login-card-admin" id="admin-login-card">
+        <div class="login-card-badge">
+          <span class="badge-icon">🛡️</span>
+          <span>System Administrator</span>
+        </div>
+        <div class="login-card-header">
+          <div class="login-card-icon admin-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h2 class="login-card-title">ADMIN LOGIN</h2>
+          <p class="login-card-desc">Login to manage and control the entire system.</p>
+        </div>
+        <div class="login-card-form">
+          <div class="form-group">
+            <label class="form-label" for="admin-email">Username or Email</label>
+            <div class="input-icon">
+              <span class="icon">👤</span>
+              <input id="admin-email" class="form-control" type="text" placeholder="Enter username or email" autocomplete="username">
+              <div class="err-msg" id="admin-email-err"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="admin-pass">Password</label>
+            <div class="input-icon input-password">
+              <span class="icon">🔒</span>
+              <input id="admin-pass" class="form-control" type="password" placeholder="Enter your password" autocomplete="current-password">
+              <button class="eye-toggle" id="admin-eye" type="button" aria-label="Toggle password">👁️</button>
+              <div class="err-msg" id="admin-pass-err"></div>
+            </div>
+          </div>
+          <div class="login-error-box" id="admin-error-box"></div>
+          <button class="btn btn-admin btn-full" id="admin-login-btn">
+            <span id="admin-btn-text">Admin Login</span>
+            <span id="admin-btn-spinner" class="btn-spinner" style="display:none"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- DIVIDER -->
+      <div class="cards-divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">OR</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- RECEPTIONIST LOGIN CARD -->
+      <div class="login-card login-card-receptionist" id="receptionist-login-card">
+        <div class="login-card-badge recept-badge">
+          <span class="badge-icon">🛎️</span>
+          <span>Front Desk Staff</span>
+        </div>
+        <div class="login-card-header">
+          <div class="login-card-icon recept-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h2 class="login-card-title">RECEPTIONIST LOGIN</h2>
+          <p class="login-card-desc">Login to manage customers, bookings and front-desk operations.</p>
+        </div>
+        <div class="login-card-form">
+          <div class="form-group">
+            <label class="form-label" for="recept-email">Username or Email</label>
+            <div class="input-icon">
+              <span class="icon">👤</span>
+              <input id="recept-email" class="form-control" type="text" placeholder="Enter username or email" autocomplete="username">
+              <div class="err-msg" id="recept-email-err"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="recept-pass">Password</label>
+            <div class="input-icon input-password">
+              <span class="icon">🔒</span>
+              <input id="recept-pass" class="form-control" type="password" placeholder="Enter your password" autocomplete="current-password">
+              <button class="eye-toggle" id="recept-eye" type="button" aria-label="Toggle password">👁️</button>
+              <div class="err-msg" id="recept-pass-err"></div>
+            </div>
+          </div>
+          <div class="login-error-box" id="recept-error-box"></div>
+          <button class="btn btn-recept btn-full" id="recept-login-btn">
+            <span id="recept-btn-text">Receptionist Login</span>
+            <span id="recept-btn-spinner" class="btn-spinner" style="display:none"></span>
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /login-cards-wrapper -->
+
+    <p class="role-page-footer">© 2026 Swarna's Unisex Saloon & Spa. Staff portal only.</p>
+  </div><!-- /role-page-content -->
+</div><!-- /role-select -->
+
+<!-- ===== ADMIN DASHBOARD ===== -->
+<div id="admin" class="screen">
+  <div class="dashboard-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar admin-sidebar" id="admin-sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpg" alt="Swarna" class="sidebar-logo">
+        <div>
+          <div class="sidebar-brand-name">Swarna's</div>
+          <div class="sidebar-brand-sub">Admin Portal</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="sidebar-item active" data-section="dashboard" id="adm-nav-dashboard">
+          <span class="sidebar-icon">📊</span><span class="sidebar-label">Dashboard</span>
+        </button>
+        <button class="sidebar-item" data-section="receptionists" id="adm-nav-receptionists">
+          <span class="sidebar-icon">🛎️</span><span class="sidebar-label">Receptionists</span>
+        </button>
+        <button class="sidebar-item" data-section="customers" id="adm-nav-customers">
+          <span class="sidebar-icon">🙋</span><span class="sidebar-label">Customers</span>
+        </button>
+        <button class="sidebar-item" data-section="appointments" id="adm-nav-appointments">
+          <span class="sidebar-icon">📅</span><span class="sidebar-label">Bookings</span>
+        </button>
+        <button class="sidebar-item" data-section="services" id="adm-nav-services">
+          <span class="sidebar-icon">💆</span><span class="sidebar-label">Services</span>
+        </button>
+        <button class="sidebar-item" data-section="staff" id="adm-nav-staff">
+          <span class="sidebar-icon">👥</span><span class="sidebar-label">Staff</span>
+        </button>
+        <button class="sidebar-item" data-section="payments" id="adm-nav-payments">
+          <span class="sidebar-icon">💰</span><span class="sidebar-label">Revenue</span>
+        </button>
+        <button class="sidebar-item" data-section="expenses" id="adm-nav-expenses">
+          <span class="sidebar-icon">💸</span><span class="sidebar-label">Expenses</span>
+        </button>
+        <button class="sidebar-item" data-section="attendance" id="adm-nav-attendance">
+          <span class="sidebar-icon">🗓️</span><span class="sidebar-label">Attendance</span>
+        </button>
+        <button class="sidebar-item" data-section="staff-accounts" id="adm-nav-staff-accounts">
+          <span class="sidebar-icon">🔑</span><span class="sidebar-label">Manage Logins</span>
+        </button>
+        <div class="sidebar-divider"></div>
+        <button class="sidebar-item" data-section="profile" id="adm-nav-profile">
+          <span class="sidebar-icon">👤</span><span class="sidebar-label">Profile</span>
+        </button>
+        <button class="sidebar-item sidebar-logout" id="admin-logout">
+          <span class="sidebar-icon">🚪</span><span class="sidebar-label">Logout</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Mobile header for admin -->
+    <div class="mobile-dash-header admin-mobile-header" id="admin-mobile-header">
+      <button class="mobile-menu-btn" id="admin-menu-toggle">☰</button>
+      <img src="assets/logo.jpg" alt="Swarna" style="height:36px;border-radius:50%;">
+      <span style="font-weight:700;color:var(--gold)">Admin Portal</span>
+      <button class="btn btn-danger btn-sm" id="admin-mobile-logout">Logout</button>
+    </div>
+
+    <!-- Main Content -->
+    <main class="dashboard-main" id="admin-main">
+      <div class="admin-content" id="admin-content"></div>
+    </main>
+  </div>
+</div>
+
+<!-- ===== RECEPTIONIST DASHBOARD ===== -->
+<div id="receptionist" class="screen">
+  <div class="dashboard-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar recept-sidebar" id="recept-sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpg" alt="Swarna" class="sidebar-logo">
+        <div>
+          <div class="sidebar-brand-name">Swarna's</div>
+          <div class="sidebar-brand-sub">Front Desk</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="sidebar-item active" data-section="overview" id="rec-nav-overview">
+          <span class="sidebar-icon">📊</span><span class="sidebar-label">Overview</span>
+        </button>
+        <button class="sidebar-item" data-section="bookings" id="rec-nav-bookings">
+          <span class="sidebar-icon">📅</span><span class="sidebar-label">Bookings</span>
+        </button>
+        <button class="sidebar-item" data-section="customers" id="rec-nav-customers">
+          <span class="sidebar-icon">👥</span><span class="sidebar-label">Customers</span>
+        </button>
+        <button class="sidebar-item" data-section="attendance" id="rec-nav-attendance">
+          <span class="sidebar-icon">🗓️</span><span class="sidebar-label">Staff Attendance</span>
+        </button>
+        <div class="sidebar-divider"></div>
+        <button class="sidebar-item" data-section="rec-profile" id="rec-nav-profile">
+          <span class="sidebar-icon">👤</span><span class="sidebar-label">Profile</span>
+        </button>
+        <button class="sidebar-item sidebar-logout" id="recept-logout">
+          <span class="sidebar-icon">🚪</span><span class="sidebar-label">Logout</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Mobile header for receptionist -->
+    <div class="mobile-dash-header recept-mobile-header" id="recept-mobile-header">
+      <button class="mobile-menu-btn" id="recept-menu-toggle">☰</button>
+      <img src="assets/logo.jpg" alt="Swarna" style="height:36px;border-radius:50%;">
+      <span style="font-weight:700;color:var(--rose)">Front Desk</span>
+      <button class="btn btn-danger btn-sm" id="recept-mobile-logout">Logout</button>
+    </div>
+
+    <!-- Main Content -->
+    <main class="dashboard-main" id="recept-main">
+      <div class="recept-content" id="recept-content"></div>
+    </main>
+  </div>
+</div>
+
+<!-- ===== CUSTOMER FACING SCREENS (Preserved) ===== -->
+<!-- ===== AUTH (kept for customer registration if needed internally) ===== -->
+<div id="auth" class="screen" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo"><div class="auth-logo-icon">✂️</div><div class="auth-logo-text serif">Swarna Spa</div></div>
+    <div class="auth-tabs">
+      <button class="tab active" id="auth-tab-login" onclick="switchAuthTab('login')">Login</button>
+      <button class="tab" id="auth-tab-register" onclick="switchAuthTab('register')">Sign Up</button>
+    </div>
+    <!-- LOGIN -->
+    <div id="login-form">
+      <h2 class="auth-title">Welcome Back</h2>
+      <p class="auth-sub">Login to your Swarna account</p>
+      <div class="form-group input-icon">
+        <label class="form-label">Email or Mobile</label>
+        <span class="icon">📧</span>
+        <input id="login-email" class="form-control" type="text" placeholder="email@example.com or 9876543210">
+        <div class="err-msg"></div>
+      </div>
+      <div class="form-group input-icon" style="position:relative">
+        <label class="form-label">Password</label>
+        <span class="icon">🔒</span>
+        <input id="login-pass" class="form-control" type="password" placeholder="Your password">
+        <div class="err-msg"></div>
+      </div>
+      <button id="login-btn" class="btn btn-gold btn-full" style="margin-bottom:14px">Login →</button>
+      <p class="auth-footer">New here? <a id="to-register">Create Account</a></p>
+    </div>
+    <!-- REGISTER -->
+    <div id="register-form" style="display:none">
+      <h2 class="auth-title">Join Swarna</h2>
+      <p class="auth-sub">Create your free account today</p>
+      <div class="form-group"><label class="form-label">Full Name</label><input id="reg-name" class="form-control" placeholder="Your full name"><div class="err-msg"></div></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Mobile</label><input id="reg-phone" class="form-control" type="tel" placeholder="10-digit number"><div class="err-msg"></div></div>
+        <div class="form-group"><label class="form-label">Email</label><input id="reg-email" class="form-control" type="email" placeholder="email@example.com"><div class="err-msg"></div></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Password</label><input id="reg-pass" class="form-control" type="password" placeholder="Min 6 chars"><div class="err-msg"></div></div>
+        <div class="form-group"><label class="form-label">Confirm</label><input id="reg-cpass" class="form-control" type="password" placeholder="Re-enter password"><div class="err-msg"></div></div>
+      </div>
+      <button id="register-btn" class="btn btn-gold btn-full">Create Account →</button>
+      <p class="auth-footer">Already have an account? <a id="to-login">Login</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HOME ===== -->
+<div id="home" class="screen">
+  <nav class="desktop-nav" style="display:none" id="desktop-nav-bar">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 16px;font-size:18px;color:var(--gold);font-weight:700">✂️ Swarna</div>
+    <button class="desktop-nav-item active" data-target="home">🏠 Home</button>
+    <button class="desktop-nav-item" data-target="services">💆 Services</button>
+    <button class="desktop-nav-item" data-target="appointments">📅 Appointments</button>
+    <button class="desktop-nav-item" data-target="favorites">❤️ Favorites</button>
+    <button class="desktop-nav-item" data-target="profile">👤 Profile</button>
+  </nav>
+  <div class="home-header">
+    <div class="home-brand">
+      <div class="home-logo">✂️</div>
+      <div>
+        <div class="home-brand-name">Swarna Spa</div>
+        <div class="home-location">📍 Koramangala, Bangalore</div>
+      </div>
+    </div>
+    <div class="home-actions">
+      <button class="icon-btn" id="home-notif">🔔<span class="notif-badge"></span></button>
+      <button class="icon-btn" id="home-profile">👤</button>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <div class="search-box">
+      <span style="color:var(--text3)">🔍</span>
+      <input id="home-search" placeholder="Search services, stylists...">
+    </div>
+  </div>
+  <p style="padding:0 20px;font-size:15px;color:var(--text2);margin-bottom:12px" id="home-greeting">Hello 👋</p>
+  <div class="banner-scroll" id="banners-container"></div>
+  <div class="section">
+    <div class="section-header"><h2 class="section-title">Categories</h2></div>
+  </div>
+  <div class="cat-scroll" id="cats-container"></div>
+  <div class="section" style="margin-top:24px">
+    <div class="section-header">
+      <h2 class="section-title">Popular Services</h2>
+      <button class="see-all" onclick="navTo('services');renderServices()">See All →</button>
+    </div>
+    <div class="services-grid" id="featured-services"></div>
+  </div>
+</div>
+
+<!-- ===== SERVICES ===== -->
+<div id="services" class="screen">
+  <div class="page-header">
+    <button class="back-btn" id="serv-back">←</button>
+    <h2>All Services</h2>
+    <div style="flex:1"></div>
+    <div class="search-box" style="width:160px;padding:8px 12px">
+      <span style="color:var(--text3);font-size:14px">🔍</span>
+      <input id="serv-search" placeholder="Search..." style="font-size:13px">
+    </div>
+  </div>
+  <div class="filter-bar" id="serv-filters"></div>
+  <div class="services-list" id="services-list"></div>
+</div>
+
+<!-- ===== SERVICE DETAIL ===== -->
+<div id="service-detail" class="screen">
+  <div class="page-header" style="position:absolute;top:0;left:0;right:0;background:transparent;border:none;z-index:10">
+    <button class="back-btn" id="detail-back" style="background:rgba(0,0,0,0.5)">←</button>
+    <div style="flex:1"></div>
+    <button class="back-btn" id="fav-btn-header" style="background:rgba(0,0,0,0.5);width:auto;padding:0 12px;border-radius:20px;font-size:13px">🤍 Save</button>
+  </div>
+  <div class="detail-img" id="detail-img"><span id="detail-emoji" style="font-size:80px;z-index:1;position:relative"></span><div class="detail-img-overlay"></div></div>
+  <div class="detail-body">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span id="detail-category" style="font-size:13px;color:var(--text3)"></span><span id="detail-gender"></span></div>
+    <h1 class="detail-title" id="detail-title"></h1>
+    <div class="detail-price-row"><span class="detail-price" id="detail-price"></span><span class="detail-orig" id="detail-orig"></span><span class="detail-disc" id="detail-disc"></span></div>
+    <div class="detail-meta-row">
+      <span class="meta-chip" id="detail-duration"></span>
+      <span class="meta-chip" id="detail-rating"></span>
+    </div>
+    <div class="detail-section"><h4>About This Service</h4><p style="font-size:14px;color:var(--text2);line-height:1.7" id="detail-desc"></p></div>
+    <div class="detail-section"><h4>Benefits</h4><div class="benefit-list" id="detail-benefits"></div></div>
+    <div class="detail-section"><h4>Preparation</h4><div id="detail-prep"></div></div>
+    <div class="detail-section"><h4>Customer Reviews</h4><div id="detail-reviews"></div></div>
+  </div>
+  <div class="detail-actions">
+    <button id="fav-btn" class="btn btn-outline" style="width:120px">🤍 Save</button>
+    <button id="book-now-btn" class="btn btn-gold" style="flex:1">Book Now →</button>
+  </div>
+</div>
+
+<!-- ===== STYLIST SELECT ===== -->
+<div id="stylist-select" class="screen">
+  <div class="page-header"><button class="back-btn" id="stylist-back">←</button><h2>Choose a Stylist</h2></div>
+  <p style="padding:12px 20px;font-size:14px;color:var(--text2)">Select your preferred stylist or go with any available.</p>
+  <div class="stylist-cards" id="stylist-cards"></div>
+  <div class="continue-bar"><button id="stylist-continue" class="btn btn-gold btn-full">Continue →</button></div>
+</div>
+
+<!-- ===== DATE TIME ===== -->
+<div id="datetime" class="screen">
+  <div class="page-header"><button class="back-btn" id="dt-back">←</button><h2>Select Date &amp; Time</h2></div>
+  <div class="date-picker">
+    <div class="month-nav">
+      <button class="month-btn" id="dt-prev">‹</button>
+      <h3 id="cal-month"></h3>
+      <button class="month-btn" id="dt-next">›</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+  <div class="time-section">
+    <h3>Available Time Slots</h3>
+    <div class="time-grid" id="time-grid"><p style="color:var(--text3);font-size:14px;grid-column:1/-1">Please select a date first</p></div>
+  </div>
+  <div class="continue-bar"><button id="dt-continue" class="btn btn-gold btn-full">Continue →</button></div>
+</div>
+
+<!-- ===== BOOKING SUMMARY ===== -->
+<div id="booking-summary" class="screen">
+  <div class="page-header"><button class="back-btn" id="sum-back">←</button><h2>Booking Summary</h2></div>
+  <div class="summary-card">
+    <div class="summary-header"><h3 class="serif">Your Appointment</h3></div>
+    <div class="summary-rows">
+      <div class="summary-row"><span class="summary-label">Customer</span><span class="summary-value" id="sum-customer"></span></div>
+      <div class="summary-row"><span class="summary-label">Service</span><span class="summary-value" id="sum-service"></span></div>
+      <div class="summary-row"><span class="summary-label">Stylist</span><span class="summary-value" id="sum-stylist"></span></div>
+      <div class="summary-row"><span class="summary-label">Date</span><span class="summary-value" id="sum-date"></span></div>
+      <div class="summary-row"><span class="summary-label">Time</span><span class="summary-value" id="sum-time"></span></div>
+      <div class="summary-row"><span class="summary-label">Duration</span><span class="summary-value" id="sum-duration"></span></div>
+      <div class="summary-divider"></div>
+      <div class="summary-row"><span class="summary-label">Service Price</span><span class="summary-value" id="sum-price"></span></div>
+      <div class="summary-row"><span class="summary-label">Coupon Discount</span><span class="summary-value" style="color:var(--success)" id="sum-discount"></span></div>
+      <div class="summary-row"><span class="summary-label">Tax (5%)</span><span class="summary-value" id="sum-tax"></span></div>
+    </div>
+    <div class="summary-total"><span class="summary-total-label">Total Amount</span><span class="summary-total-val" id="sum-total"></span></div>
+  </div>
+  <div class="coupon-row" style="margin-bottom:16px">
+    <input id="coupon-input" class="form-control" placeholder="Enter coupon code">
+    <button id="apply-coupon" class="btn btn-outline">Apply</button>
+  </div>
+  <div style="padding:0 20px">
+    <button id="confirm-booking" class="btn btn-gold btn-full">Confirm &amp; Pay →</button>
+  </div>
+</div>
+
+<!-- ===== PAYMENT ===== -->
+<div id="payment" class="screen">
+  <div class="page-header"><button class="back-btn" id="pay-back">←</button><h2>Payment</h2></div>
+  <div style="padding:16px 20px;background:var(--bg3);margin:16px 20px;border-radius:var(--radius);border:1px solid var(--border2)">
+    <div class="summary-row" style="margin-bottom:8px"><span class="summary-label">Amount</span><span id="pay-amount"></span></div>
+    <div class="summary-row" style="margin-bottom:8px"><span class="summary-label">Discount</span><span style="color:var(--success)" id="pay-discount"></span></div>
+    <div class="summary-row" style="margin-bottom:8px"><span class="summary-label">Tax</span><span id="pay-tax"></span></div>
+    <div class="summary-row" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px"><span style="font-weight:600">Total</span><span style="font-size:20px;font-weight:700;color:var(--gold)" id="pay-total"></span></div>
+  </div>
+  <p style="padding:0 20px;font-size:14px;color:var(--text2);margin-bottom:12px">Choose payment method:</p>
+  <div class="payment-methods">
+    <div class="payment-option selected" data-method="UPI"><div class="payment-icon">📱</div><div class="payment-info"><div class="payment-name">UPI</div><div class="payment-desc">Pay via GPay, PhonePe, Paytm, BHIM</div></div><div class="radio-circle"></div></div>
+    <div class="payment-option" data-method="Card"><div class="payment-icon">💳</div><div class="payment-info"><div class="payment-name">Credit / Debit Card</div><div class="payment-desc">Visa, Mastercard, RuPay accepted</div></div><div class="radio-circle"></div></div>
+    <div class="payment-option" data-method="Cash"><div class="payment-icon">💵</div><div class="payment-info"><div class="payment-name">Cash at Salon</div><div class="payment-desc">Pay when you arrive</div></div><div class="radio-circle"></div></div>
+  </div>
+  <div class="pay-btn-wrap"><button id="pay-btn" class="btn btn-gold btn-full btn-lg">Pay Now →</button></div>
+</div>
+
+<!-- ===== CONFIRMATION ===== -->
+<div id="confirmation" class="screen">
+  <div class="confirm-wrap">
+    <div class="confirm-icon">✅</div>
+    <h2 class="confirm-title serif">Appointment Confirmed!</h2>
+    <p class="confirm-sub">Your booking is confirmed. We look forward to seeing you!</p>
+    <div class="booking-ref">
+      <div class="booking-ref-row"><span style="color:var(--text3)">Booking ID</span><span style="font-weight:700;color:var(--gold)" id="conf-id"></span></div>
+      <div class="booking-ref-row"><span style="color:var(--text3)">Service</span><span id="conf-service"></span></div>
+      <div class="booking-ref-row"><span style="color:var(--text3)">Stylist</span><span id="conf-stylist"></span></div>
+      <div class="booking-ref-row"><span style="color:var(--text3)">Date</span><span id="conf-date"></span></div>
+      <div class="booking-ref-row"><span style="color:var(--text3)">Time</span><span id="conf-time"></span></div>
+      <div class="booking-ref-row"><span style="color:var(--text3)">Amount</span><span style="color:var(--gold);font-weight:600" id="conf-amount"></span></div>
+      <div class="booking-ref-row"><span style="color:var(--text3)">Payment</span><span class="badge badge-success" id="conf-pay-status"></span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button id="conf-view-appt" class="btn btn-outline btn-full">View My Appointments</button>
+      <button id="conf-home" class="btn btn-ghost btn-full">Go Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== APPOINTMENTS ===== -->
+<div id="appointments" class="screen">
+  <div class="page-header"><h2>My Appointments</h2></div>
+  <div style="padding:12px 20px">
+    <div class="tabs appt-tabs">
+      <button class="tab active" id="appt-tab-upcoming">Upcoming</button>
+      <button class="tab" id="appt-tab-completed">Completed</button>
+      <button class="tab" id="appt-tab-cancelled">Cancelled</button>
+    </div>
+  </div>
+  <div class="appt-list" id="appt-list"></div>
+</div>
+
+<!-- ===== FAVORITES ===== -->
+<div id="favorites" class="screen">
+  <div class="page-header"><button class="back-btn" id="fav-back">←</button><h2>My Favorites</h2></div>
+  <div class="fav-grid" id="fav-services"></div>
+</div>
+
+<!-- ===== PROFILE ===== -->
+<div id="profile" class="screen">
+  <div class="profile-header">
+    <div class="profile-avatar" id="prof-avatar">P</div>
+    <h2 class="profile-name" id="prof-name">User</h2>
+    <p class="profile-email" id="prof-email"></p>
+    <p style="font-size:13px;color:var(--text3)" id="prof-phone"></p>
+    <div class="profile-mem-badge">⭐ <span id="prof-mem">No Membership</span></div>
+  </div>
+  <div class="profile-menu">
+    <div class="profile-menu-item" id="menu-appts"><div class="profile-menu-icon">📅</div><span class="profile-menu-label">My Appointments</span><span style="color:var(--text3)">›</span></div>
+    <div class="profile-menu-item" id="menu-favs"><div class="profile-menu-icon">❤️</div><span class="profile-menu-label">Favorites</span><span style="color:var(--text3)">›</span></div>
+    <div class="profile-menu-item" id="menu-mem"><div class="profile-menu-icon">👑</div><span class="profile-menu-label">Membership Plans</span><span style="color:var(--gold);font-size:12px">New</span><span style="color:var(--text3)">›</span></div>
+    <div class="profile-menu-item" id="menu-offers"><div class="profile-menu-icon">🏷️</div><span class="profile-menu-label">Offers &amp; Coupons</span><span style="color:var(--text3)">›</span></div>
+    <div class="profile-menu-item" id="menu-notifs"><div class="profile-menu-icon">🔔</div><span class="profile-menu-label">Notifications</span><span style="color:var(--text3)">›</span></div>
+    <div class="profile-menu-item" id="menu-location"><div class="profile-menu-icon">📍</div><span class="profile-menu-label">Salon Locations</span><span style="color:var(--text3)">›</span></div>
+    <div class="profile-menu-item" id="menu-logout" style="border-color:#F4433640"><div class="profile-menu-icon" style="background:#F4433620">🚪</div><span class="profile-menu-label" style="color:#F44336">Logout</span></div>
+  </div>
+</div>
+
+<!-- ===== MEMBERSHIP ===== -->
+<div id="membership" class="screen">
+  <div class="page-header"><button class="back-btn" id="mem-back">←</button><h2>Membership Plans</h2></div>
+  <p style="padding:12px 20px;font-size:14px;color:var(--text2)">Unlock exclusive benefits and save more with every visit.</p>
+  <div class="membership-cards"></div>
+</div>
+
+<!-- ===== OFFERS ===== -->
+<div id="offers" class="screen">
+  <div class="page-header"><button class="back-btn" id="offers-back">←</button><h2>Offers &amp; Coupons</h2></div>
+  <div style="padding:16px 20px" id="offers-list"></div>
+</div>
+
+<!-- ===== NOTIFICATIONS ===== -->
+<div id="notifications" class="screen">
+  <div class="page-header"><button class="back-btn" id="notif-back">←</button><h2>Notifications</h2></div>
+  <div class="notif-list" id="notif-list"></div>
+</div>
+
+<!-- ===== LOCATION ===== -->
+<div id="location" class="screen">
+  <div class="page-header"><button class="back-btn" id="loc-back">←</button><h2>Our Branches</h2></div>
+  <div style="padding:16px 20px">
+    <div class="map-placeholder">🗺️</div>
+    <div class="branch-list"></div>
+  </div>
+</div>
+
+<!-- ===== BOTTOM NAV ===== -->
+<div id="bottom-nav">
+  <div class="nav-items">
+    <button class="nav-item active" id="nav-home"><span class="nav-icon">🏠</span><span>Home</span><div class="nav-dot"></div></button>
+    <button class="nav-item" id="nav-services"><span class="nav-icon">💆</span><span>Services</span><div class="nav-dot"></div></button>
+    <button class="nav-item" id="nav-appts"><span class="nav-icon">📅</span><span>Bookings</span><div class="nav-dot"></div></button>
+    <button class="nav-item" id="nav-profile"><span class="nav-icon">👤</span><span>Profile</span><div class="nav-dot"></div></button>
+  </div>
+</div>
+
+<!-- ===== MODALS ===== -->
+<!-- Review Modal -->
+<div class="modal-overlay" id="review-modal">
+  <div class="modal">
+    <div class="modal-header"><h3>Rate Your Experience</h3><button onclick="closeModal('review-modal')" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body">
+      <p style="color:var(--text2);font-size:14px;margin-bottom:8px">How was your experience?</p>
+      <div class="star-rate">
+        <span class="star-r" data-v="1">★</span><span class="star-r" data-v="2">★</span><span class="star-r" data-v="3">★</span><span class="star-r" data-v="4">★</span><span class="star-r" data-v="5">★</span>
+      </div>
+      <div class="form-group"><label class="form-label">Your Review (optional)</label><textarea id="review-comment" class="form-control" placeholder="Tell us about your experience..."></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('review-modal')">Cancel</button><button id="submit-review" class="btn btn-gold">Submit Review</button></div>
+  </div>
+</div>
+<!-- Add Service Modal -->
+<div class="modal-overlay" id="add-service-modal">
+  <div class="modal">
+    <div class="modal-header"><h3>Add New Service</h3><button onclick="closeModal('add-service-modal')" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Service Name</label><input id="svc-name" class="form-control" placeholder="e.g. Haircut"></div>
+        <div class="form-group"><label class="form-label">Category</label><select id="svc-cat" class="form-control"><option>Hair</option><option>Beard &amp; Grooming</option><option>Skin &amp; Facial</option><option>Nails</option><option>Makeup</option><option>Hair Removal</option><option>Packages</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Price (₹)</label><input id="svc-price" class="form-control" type="number" placeholder="499"></div>
+        <div class="form-group"><label class="form-label">Discount (%)</label><input id="svc-disc" class="form-control" type="number" placeholder="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Duration (min)</label><input id="svc-dur" class="form-control" type="number" placeholder="30"></div>
+        <div class="form-group"><label class="form-label">Gender</label><select id="svc-gender" class="form-control"><option>Unisex</option><option>Men</option><option>Women</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea id="svc-desc" class="form-control" placeholder="Service description..."></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('add-service-modal')">Cancel</button><button id="save-service" class="btn btn-gold">Save Service</button></div>
+  </div>
+</div>
+<!-- Add Coupon Modal -->
+<div class="modal-overlay" id="add-coupon-modal">
+  <div class="modal">
+    <div class="modal-header"><h3>Create Coupon</h3><button onclick="closeModal('add-coupon-modal')" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Coupon Code</label><input id="coup-code" class="form-control" placeholder="e.g. SAVE20" style="text-transform:uppercase"></div>
+        <div class="form-group"><label class="form-label">Type</label><select id="coup-type" class="form-control"><option value="percent">Percent (%)</option><option value="flat">Flat (₹)</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Discount Value</label><input id="coup-disc" class="form-control" type="number" placeholder="20"></div>
+        <div class="form-group"><label class="form-label">Min Order (₹)</label><input id="coup-min" class="form-control" type="number" placeholder="300"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Expiry Date</label><input id="coup-expiry" class="form-control" type="date"></div>
+        <div class="form-group"><label class="form-label">Usage Limit</label><input id="coup-limit" class="form-control" type="number" placeholder="100"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><input id="coup-desc" class="form-control" placeholder="e.g. 20% off on all services"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('add-coupon-modal')">Cancel</button><button id="save-coupon" class="btn btn-gold">Create Coupon</button></div>
+  </div>
+</div>
+<!-- ===== BILL / RECEIPT MODAL (Receptionist) ===== -->
+<div class="modal-overlay" id="bill-modal">
+  <div class="modal" style="max-width:520px;padding:0;overflow:hidden" id="bill-modal-inner">
+    <!-- Receipt Header -->
+    <div class="bill-header">
+      <div class="bill-logo-row">
+        <img src="assets/logo.jpg" alt="Swarna" class="bill-logo-img">
+        <div>
+          <div class="bill-salon-name">Swarna's Unisex Saloon &amp; Spa</div>
+          <div class="bill-salon-addr">Koramangala, Bangalore — 📞 +91 98765 43210</div>
+          <div class="bill-salon-addr">GSTIN: 29AAACS1234A1Z5</div>
+        </div>
+      </div>
+      <div class="bill-title-strip">
+        <span>TAX INVOICE / RECEIPT</span>
+      </div>
+    </div>
+
+    <!-- Receipt Body -->
+    <div class="bill-body" id="bill-body">
+      <div class="bill-meta-row">
+        <div>
+          <div class="bill-meta-label">Bill No.</div>
+          <div class="bill-meta-val" id="bill-id">—</div>
+        </div>
+        <div style="text-align:right">
+          <div class="bill-meta-label">Date &amp; Time</div>
+          <div class="bill-meta-val" id="bill-datetime">—</div>
+        </div>
+      </div>
+
+      <div class="bill-divider"></div>
+
+      <!-- Customer Info -->
+      <div class="bill-section-label">CUSTOMER DETAILS</div>
+      <div class="bill-info-grid">
+        <div class="bill-info-row"><span class="bill-info-key">Name</span><span class="bill-info-val" id="bill-cust-name">—</span></div>
+        <div class="bill-info-row"><span class="bill-info-key">Phone</span><span class="bill-info-val" id="bill-cust-phone">—</span></div>
+      </div>
+
+      <div class="bill-divider"></div>
+
+      <!-- Service Info -->
+      <div class="bill-section-label">SERVICE DETAILS</div>
+      <div class="bill-info-grid">
+        <div class="bill-info-row"><span class="bill-info-key">Service</span><span class="bill-info-val" id="bill-service">—</span></div>
+        <div class="bill-info-row"><span class="bill-info-key">Stylist</span><span class="bill-info-val" id="bill-stylist">—</span></div>
+        <div class="bill-info-row"><span class="bill-info-key">Date</span><span class="bill-info-val" id="bill-date">—</span></div>
+        <div class="bill-info-row"><span class="bill-info-key">Time</span><span class="bill-info-val" id="bill-time">—</span></div>
+        <div class="bill-info-row"><span class="bill-info-key">Duration</span><span class="bill-info-val" id="bill-duration">—</span></div>
+        <div class="bill-info-row"><span class="bill-info-key">Payment Mode</span><span class="bill-info-val" id="bill-pay-mode">—</span></div>
+      </div>
+
+      <div class="bill-divider"></div>
+
+      <!-- Amount Breakdown -->
+      <div class="bill-section-label">AMOUNT BREAKDOWN</div>
+      <div class="bill-amount-table">
+        <div class="bill-amount-row"><span>Service Price</span><span id="bill-price">—</span></div>
+        <div class="bill-amount-row discount-row"><span>Discount</span><span id="bill-discount">—</span></div>
+        <div class="bill-amount-row"><span>GST / Tax (5%)</span><span id="bill-tax">—</span></div>
+        <div class="bill-total-row"><span>TOTAL AMOUNT</span><span id="bill-total">—</span></div>
+      </div>
+
+      <div class="bill-divider"></div>
+
+      <!-- Payment Status -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <span style="font-size:13px;color:var(--text3)">Payment Status</span>
+        <span class="badge badge-success" id="bill-pay-status">Paid</span>
+      </div>
+
+      <!-- Thank You Note -->
+      <div class="bill-thankyou">
+        <div>🌸 Thank you for visiting Swarna's!</div>
+        <div style="font-size:11px;margin-top:4px;opacity:0.7">Please visit again. For queries: info@swarnaspa.com</div>
+      </div>
+    </div>
+
+    <!-- Action Buttons (hidden while printing) -->
+    <div class="bill-actions no-print">
+      <button class="btn btn-ghost" onclick="closeModal('bill-modal')">✕ Close</button>
+      <button class="btn btn-gold" onclick="printBill()">🖨️ Print Receipt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Walk-in Booking Modal (Receptionist) -->
+<div class="modal-overlay" id="walkin-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><h3>🛎️ Create Walk-in Booking</h3><button onclick="closeModal('walkin-modal')" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Customer Name</label><input id="walkin-name" class="form-control" placeholder="Full name"></div>
+        <div class="form-group"><label class="form-label">Phone</label><input id="walkin-phone" class="form-control" type="tel" placeholder="10-digit number"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Service</label><select id="walkin-service" class="form-control"></select></div>
+        <div class="form-group"><label class="form-label">Stylist</label><select id="walkin-staff" class="form-control"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Date</label><input id="walkin-date" class="form-control" type="date"></div>
+        <div class="form-group"><label class="form-label">Time</label><input id="walkin-time" class="form-control" type="time"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Payment Method</label>
+        <select id="walkin-payment" class="form-control"><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Card">Card</option></select>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('walkin-modal')">Cancel</button><button id="walkin-confirm" class="btn btn-gold">Confirm Booking</button></div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</div>
+</body>
+</html>
