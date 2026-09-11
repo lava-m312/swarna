@@ -17,6 +17,7 @@ const Notification = require('./models/Notification');
 const Membership = require('./models/Membership');
 const Branch = require('./models/Branch');
 const autoSeedDatabase = require('./seedData');
+const connectDB = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,21 +26,31 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// MongoDB Atlas Connection
-const MONGODB_URI = process.env.MONGODB_URI;
+// Normalize URL in case serverless environment strips /api prefix
+app.use((req, res, next) => {
+  if (!req.url.startsWith('/api')) {
+    req.url = '/api' + req.url;
+  }
+  next();
+});
 
-if (!MONGODB_URI) {
-  console.warn('⚠️ MONGODB_URI is not set in backend/.env file. Please set it to connect to your MongoDB Atlas cluster.');
-} else {
-  mongoose.connect(MONGODB_URI)
-    .then(async () => {
-      console.log('✅ Connected to MongoDB Atlas successfully!');
-      await autoSeedDatabase();
-    })
-    .catch((err) => {
-      console.error('❌ MongoDB Connection Error:', err.message);
+// Middleware to ensure DB connection is ready before processing API routes
+app.use(async (req, res, next) => {
+  if (req.path === '/api/health') {
+    return next();
+  }
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Database connection error in middleware:', err.message);
+    res.status(503).json({
+      error: 'Database connection failed.',
+      message: err.message
     });
-}
+  }
+});
+
 
 // Helper for next auto-increment integer ID
 async function getNextId(Model) {
@@ -460,19 +471,37 @@ app.post('/api/coupons/apply', async (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let dbError = null;
+  try {
+    await connectDB();
+  } catch (err) {
+    dbError = err.message;
+  }
+  const isConnected = mongoose.connection.readyState === 1;
   res.json({
     status: 'ok',
-    mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    mongoStatus: isConnected ? 'connected' : 'disconnected',
+    hasMongoUri: Boolean(process.env.MONGODB_URI),
+    error: dbError,
     timestamp: new Date().toISOString()
   });
 });
 
 // Start server locally; on Vercel, export app as serverless handler
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`🚀 Swarna Spa Express server running on port ${PORT}`);
-  });
+  connectDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`🚀 Swarna Spa Express server running on port ${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error('⚠️ Could not connect to MongoDB Atlas on startup:', err.message);
+      app.listen(PORT, () => {
+        console.log(`🚀 Swarna Spa Express server running on port ${PORT} (offline DB mode)`);
+      });
+    });
 }
 
 module.exports = app;
