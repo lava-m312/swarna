@@ -468,6 +468,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Swarna Spa Express server running on port ${PORT}`);
-});
+// Start server locally; on Vercel, export app as serverless handler
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Swarna Spa Express server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
