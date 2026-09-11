@@ -1,6 +1,9 @@
 // ===================== SWARNA SPA - DATA STORE & API CLIENT =====================
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// Use relative /api path on Vercel (same domain), localhost:5000 for local dev
+const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:5000/api'
+  : '/api';
 
 const DB = {
   users: [
