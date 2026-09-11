@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Swarna's Unisex Saloon & Spa — Staff Portal</title>
 <meta name="description" content="Swarna's Unisex Saloon and Spa — Staff management portal for Admin and Receptionist login.">
+<meta name="theme-color" content="#0D0D0D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Swarna Spa">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Swarna Spa">
+<meta name="msapplication-TileColor" content="#0D0D0D">
+
+<!-- PWA Icons & Manifest -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -138,7 +151,7 @@
 
     </div><!-- /login-cards-wrapper -->
 
-    <p class="role-page-footer">© 2026 Swarna's Unisex Saloon & Spa. Staff portal only.</p>
+    <p class="role-page-footer">© 2026 Swarna's Unisex Saloon & Spa. Staff portal only. &bull; <a href="#" onclick="triggerPwaInstall();return false;" style="color:var(--gold);text-decoration:none;font-weight:600;">📲 Install App</a></p>
   </div><!-- /role-page-content -->
 </div><!-- /role-select -->
 
@@ -189,6 +202,9 @@
         <button class="sidebar-item" data-section="profile" id="adm-nav-profile">
           <span class="sidebar-icon">👤</span><span class="sidebar-label">Profile</span>
         </button>
+        <button class="sidebar-item" onclick="triggerPwaInstall()" id="admin-pwa-install">
+          <span class="sidebar-icon">📲</span><span class="sidebar-label">Install App</span>
+        </button>
         <button class="sidebar-item sidebar-logout" id="admin-logout">
           <span class="sidebar-icon">🚪</span><span class="sidebar-label">Logout</span>
         </button>
@@ -238,6 +254,9 @@
         <div class="sidebar-divider"></div>
         <button class="sidebar-item" data-section="rec-profile" id="rec-nav-profile">
           <span class="sidebar-icon">👤</span><span class="sidebar-label">Profile</span>
+        </button>
+        <button class="sidebar-item" onclick="triggerPwaInstall()" id="recept-pwa-install">
+          <span class="sidebar-icon">📲</span><span class="sidebar-label">Install App</span>
         </button>
         <button class="sidebar-item sidebar-logout" id="recept-logout">
           <span class="sidebar-icon">🚪</span><span class="sidebar-label">Logout</span>
@@ -737,6 +756,48 @@
 
 <script src="data.js"></script>
 <script src="app.js"></script>
+<script src="pwa.js"></script>
+
+<!-- ===== PWA INSTALL BANNER ===== -->
+<div id="pwa-install-banner" class="pwa-banner">
+  <div class="pwa-banner-content">
+    <img src="assets/icon-192.png" alt="Swarna Spa App" class="pwa-banner-icon">
+    <div class="pwa-banner-text">
+      <div class="pwa-banner-title">Swarna Spa App</div>
+      <div class="pwa-banner-subtitle">Install for fast offline access & instant launch</div>
+    </div>
+  </div>
+  <div class="pwa-banner-actions">
+    <button id="pwa-install-btn" class="btn-pwa-install">
+      <span>📲 Install</span>
+    </button>
+    <button id="pwa-dismiss-btn" class="btn-pwa-close" aria-label="Close">✕</button>
+  </div>
+</div>
+
+<!-- ===== IOS INSTALL GUIDE MODAL ===== -->
+<div id="ios-install-modal" class="ios-install-modal">
+  <div class="ios-install-sheet">
+    <h4>📲 Install Swarna Spa on iPhone</h4>
+    <p>Install this app to your Home Screen for full-screen experience and instant offline access.</p>
+    <div class="ios-install-steps">
+      <div class="ios-step">
+        <div class="ios-step-num">1</div>
+        <div>Tap the <strong>Share</strong> button (box with arrow <span style="font-size:16px;">⎋</span>) at the bottom of Safari.</div>
+      </div>
+      <div class="ios-step">
+        <div class="ios-step-num">2</div>
+        <div>Scroll down and select <strong>"Add to Home Screen"</strong> (➕).</div>
+      </div>
+      <div class="ios-step">
+        <div class="ios-step-num">3</div>
+        <div>Tap <strong>"Add"</strong> in the top right corner.</div>
+      </div>
+    </div>
+    <button id="ios-install-close" class="btn btn-gold btn-full">Got It</button>
+  </div>
+</div>
+
 </div>
 </body>
 </html>

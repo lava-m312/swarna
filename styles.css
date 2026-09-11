@@ -1297,3 +1297,203 @@ select.form-control { cursor:pointer; }
   color: var(--text3);
   margin-bottom: 20px;
 }
+
+/* ===== PWA INSTALL BANNER & MODAL ===== */
+.pwa-banner {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  width: calc(100% - 32px);
+  max-width: 480px;
+  background: rgba(22, 22, 22, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(201, 168, 76, 0.15);
+  z-index: 9999;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pwa-banner.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pwa-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pwa-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.pwa-banner-text {
+  min-width: 0;
+}
+
+.pwa-banner-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gold-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pwa-banner-subtitle {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+.pwa-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-pwa-install {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+  color: #000;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-gold);
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-pwa-install:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+.btn-pwa-close {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.btn-pwa-close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* iOS Install Instructions Modal */
+.ios-install-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.ios-install-modal.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ios-install-sheet {
+  width: 100%;
+  max-width: 440px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+  text-align: center;
+  transform: translateY(40px);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ios-install-modal.active .ios-install-sheet {
+  transform: translateY(0);
+}
+
+.ios-install-sheet h4 {
+  color: var(--gold-light);
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.ios-install-sheet p {
+  color: var(--text2);
+  font-size: 13px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.ios-install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ios-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg2);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.ios-step-num {
+  width: 22px;
+  height: 22px;
+  background: var(--gold);
+  color: #000;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
