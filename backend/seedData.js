@@ -51,10 +51,14 @@ const initialBranches = [
 
 async function autoSeedDatabase() {
   try {
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      await User.insertMany(initialUsers);
-      console.log('✅ Seeded initial Users (Admin & Receptionist)');
+    for (const u of initialUsers) {
+      const exists = await User.findOne({ email: u.email });
+      if (!exists) {
+        const maxUser = await User.findOne().sort({ id: -1 });
+        const nextId = (maxUser && maxUser.id ? maxUser.id : 0) + 1;
+        await User.create({ ...u, id: nextId });
+        console.log(`✅ Seeded user: ${u.name} (${u.email})`);
+      }
     }
     for (const s of initialServices) {
       const exists = await Service.findOne({ id: s.id });
