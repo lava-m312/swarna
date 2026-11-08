@@ -738,6 +738,26 @@
   </div>
 </div>
 
+<!-- ===== ADD RECEPTIONIST MODAL (Admin) ===== -->
+<div class="modal-overlay" id="add-receptionist-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>➕ Add New Receptionist Account</h3>
+      <button onclick="closeModal('add-receptionist-modal')" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Full Name</label><input id="ar-name" class="form-control" placeholder="e.g. Priya Sharma"></div>
+      <div class="form-group"><label class="form-label">Phone Number</label><input id="ar-phone" class="form-control" type="tel" placeholder="10-digit number"></div>
+      <div class="form-group"><label class="form-label">Login Username / Email</label><input id="ar-email" class="form-control" placeholder="e.g. priya@swarna.com"></div>
+      <div class="form-group"><label class="form-label">Password</label><input id="ar-pass" class="form-control" type="password" placeholder="Set password"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('add-receptionist-modal')">Cancel</button>
+      <button class="btn btn-gold" onclick="submitAddReceptionist()">Create Receptionist</button>
+    </div>
+  </div>
+</div>
+
 <!-- Walk-in Booking Modal (Receptionist) -->
 <div class="modal-overlay" id="walkin-modal">
   <div class="modal" style="max-width:560px">

@@ -56,10 +56,12 @@ async function autoSeedDatabase() {
       await User.insertMany(initialUsers);
       console.log('✅ Seeded initial Users (Admin & Receptionist)');
     }
-    const serviceCount = await Service.countDocuments();
-    if (serviceCount === 0) {
-      await Service.insertMany(initialServices);
-      console.log('✅ Seeded initial Services');
+    for (const s of initialServices) {
+      const exists = await Service.findOne({ id: s.id });
+      if (!exists) {
+        await Service.create(s);
+        console.log(`✅ Seeded missing service: ${s.name} (#${s.id})`);
+      }
     }
     const staffCount = await Staff.countDocuments();
     if (staffCount === 0) {

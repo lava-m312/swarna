@@ -57,6 +57,25 @@ const DB = {
   nextId: { user: 3, appointment: 1001, review: 1, coupon: 1, expense: 1, attendance: 1 },
 };
 
+const REQUIRED_SERVICES = [
+  { id: 16, name: 'Body Massage', category: 'Massage & Body', description: 'Full body relaxation massage to relieve stress and tension.', price: 999, discount: 0, duration: 60, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Stress relief', 'Muscle relaxation', 'Better sleep'], prep: [] },
+  { id: 17, name: 'Swedish Massage', category: 'Massage & Body', description: 'Classic Swedish massage with long flowing strokes for deep relaxation.', price: 1299, discount: 0, duration: 75, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Deep relaxation', 'Improved circulation', 'Pain relief'], prep: [] },
+  { id: 18, name: 'Deep Tissue Massage', category: 'Massage & Body', description: 'Intensive deep tissue massage targeting chronic muscle tension.', price: 1499, discount: 0, duration: 90, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Chronic pain relief', 'Muscle recovery', 'Improved mobility'], prep: ['Drink water before'] },
+  { id: 19, name: 'Aromatherapy', category: 'Massage & Body', description: 'Therapeutic massage with essential aromatic oils for holistic healing.', price: 1199, discount: 0, duration: 60, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Mood enhancement', 'Stress relief', 'Skin nourishment'], prep: [] },
+  { id: 20, name: 'Head & Foot Massage', category: 'Massage & Body', description: 'Soothing head and foot reflexology massage for total relaxation.', price: 599, discount: 0, duration: 45, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Headache relief', 'Improved sleep', 'Reflexology benefits'], prep: [] },
+  { id: 21, name: 'Body Scrub & Polish', category: 'Massage & Body', description: 'Exfoliating body scrub and polish for smooth glowing skin.', price: 899, discount: 0, duration: 50, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Dead skin removal', 'Smooth skin', 'Even skin tone'], prep: [] }
+];
+
+function ensureMassageServices(){
+  if(!DB.services) DB.services = [];
+  REQUIRED_SERVICES.forEach(req => {
+    const existing = DB.services.find(s => s.name.toLowerCase() === req.name.toLowerCase());
+    if(!existing){
+      DB.services.push(req);
+    }
+  });
+}
+
 function saveDB() {
   localStorage.setItem('swarnaDB', JSON.stringify(DB));
 }
@@ -78,6 +97,7 @@ async function loadDB() {
       if (data.branches && data.branches.length) DB.branches = data.branches;
       if (data.annualMembers) DB.annualMembers = data.annualMembers;
       if (data.billCounter) DB.billCounter = data.billCounter;
+      ensureMassageServices();
       saveDB();
       return true;
     }
@@ -101,13 +121,22 @@ async function loadDB() {
     if (!parsed.billCounter) parsed.billCounter = 1;
     Object.assign(DB, parsed);
   }
+  ensureMassageServices();
   return false;
 }
 loadDB();
+ensureMassageServices();
 
 let currentUser = null;
 
 async function loginUser(emailOrPhone, password, requiredRole) {
+  // Check if account is disabled in memory
+  const localMatch = DB.users.find(u =>
+    (u.email === emailOrPhone || u.phone === emailOrPhone || u.name.toLowerCase() === emailOrPhone.toLowerCase())
+  );
+  if (localMatch && localMatch.disabled) {
+    return { error: 'This account has been disabled by administrator.' };
+  }
   try {
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
@@ -151,7 +180,14 @@ function restoreSession() {
   if (!sess) return null;
   const { id, role } = JSON.parse(sess);
   const user = DB.users.find(u => u.id === id && u.role === role);
-  if (user) { currentUser = user; }
+  if (user) {
+    if (user.disabled) {
+      sessionStorage.removeItem('swarna_session');
+      currentUser = null;
+      return null;
+    }
+    currentUser = user;
+  }
   return user || null;
 }
 

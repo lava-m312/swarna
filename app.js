@@ -440,24 +440,55 @@ function renderAdminReceptionists(){
   $('admin-content').innerHTML = `
     <div class="admin-section">
       <div class="admin-table-title">
-        <h3>🛎️ Receptionist Management</h3>
-        <button class="btn btn-gold btn-sm" onclick="switchAdminSection2('staff-accounts')">+ Add Receptionist</button>
+        <h3>🛎️ Receptionist Management (${receptionists.length})</h3>
+        <button class="btn btn-gold btn-sm" onclick="openAddReceptionistModal()">+ Add Receptionist</button>
       </div>
-      <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody>${receptionists.map(u=>`<tr>
-        <td><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--rose-dark),var(--rose));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#2a0010">${u.name[0]}</div>${u.name}</div></td>
-        <td>${u.email}</td><td>${u.phone}</td><td>${u.createdAt}</td>
+      <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Name</th><th>Email / Username</th><th>Phone</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${receptionists.length ? receptionists.map(u=>`<tr>
+        <td><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dark),var(--gold));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#000">${u.name[0]||'R'}</div><b>${u.name}</b></div></td>
+        <td>${u.email}</td><td>${u.phone||'—'}</td><td>${u.createdAt||'—'}</td>
         <td><span class="badge ${u.disabled ? 'badge-danger' : 'badge-success'}">${u.disabled ? 'Disabled' : 'Active'}</span></td>
-        <td><div class="admin-action-row"><button class="btn btn-ghost btn-sm" onclick="switchAdminSection2('staff-accounts')">Edit</button><button class="btn ${u.disabled ? 'btn-success' : 'btn-danger'} btn-sm" onclick="toggleReceptionist(${u.id})">${u.disabled ? 'Enable' : 'Disable'}</button></div></td>
-      </tr>`).join('')}</tbody></table></div>
+        <td><div class="admin-action-row"><button class="btn ${u.disabled ? 'btn-success' : 'btn-danger'} btn-sm" onclick="toggleReceptionist(${u.id})">${u.disabled ? 'Enable' : 'Disable'}</button></div></td>
+      </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">No receptionists registered yet. Click "+ Add Receptionist" above.</td></tr>'}</tbody></table></div>
     </div>`;
 }
-function toggleReceptionist(uid){
+
+function openAddReceptionistModal(){
+  ['ar-name', 'ar-phone', 'ar-email', 'ar-pass'].forEach(id => {
+    const el = $(id);
+    if(el) el.value = '';
+  });
+  openModal('add-receptionist-modal');
+}
+
+async function submitAddReceptionist(){
+  const name  = $('ar-name')?.value.trim();
+  const phone = $('ar-phone')?.value.trim();
+  const email = $('ar-email')?.value.trim();
+  const pass  = $('ar-pass')?.value.trim();
+
+  if(!name || !email || !pass){
+    toast('Please fill all required fields (Name, Email/Username, Password)', 'error');
+    return;
+  }
+
+  const res = await apiAddStaffAccount({ name, phone: phone || 'N/A', email, password: pass, role: 'receptionist' });
+  if(res && res.error){
+    toast(res.error, 'error');
+    return;
+  }
+
+  closeModal('add-receptionist-modal');
+  toast(`Receptionist "${name}" created successfully!`, 'success');
+  renderAdminReceptionists();
+}
+
+async function toggleReceptionist(uid){
   const u = DB.users.find(x => x.id === uid);
   if(!u) return;
   u.disabled = !u.disabled;
   saveDB();
-  apiToggleUserDisabled(uid);
+  await apiToggleUserDisabled(uid);
   toast(u.disabled ? `${u.name} has been disabled` : `${u.name} has been enabled`, u.disabled ? 'info' : 'success');
   renderAdminReceptionists();
 }
@@ -750,24 +781,11 @@ function initReceptionistSidebar(){
 
   initMobileSidebar('receptionist');
 
-  // Pre-populate walk-in modal
-  const svcSel = $('walkin-service');
-  const priceInput = $('walkin-price');
-  if(svcSel){
-    const activeSvcs = DB.services.filter(s=>s.status);
-    svcSel.innerHTML = activeSvcs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-    if(activeSvcs.length && priceInput && !priceInput.value){
-      priceInput.value = getDiscountedPrice(activeSvcs[0]);
-    }
-    svcSel.onchange = () => {
-      const selected = DB.services.find(s => s.id == svcSel.value);
-      if(selected && priceInput) priceInput.value = getDiscountedPrice(selected);
-    };
-  }
-  const stylistList = $('stylist-list');
-  if(stylistList){
-    stylistList.innerHTML = DB.staff.filter(s=>s.status).map(s=>`<option value="${s.name}"></option>`).join('');
-  }
+  // Setup walk-in modal events
+  setupWalkinModalEvents();
+}
+
+function setupWalkinModalEvents(){
   const phoneInput = $('walkin-phone');
   if(phoneInput){
     phoneInput.oninput = () => {
@@ -792,11 +810,55 @@ function initReceptionistSidebar(){
       }
     };
   }
-  const walkinDate = $('walkin-date');
-  if(walkinDate) walkinDate.value = new Date().toISOString().split('T')[0];
-
   const walkinConfirm = $('walkin-confirm');
   if(walkinConfirm) walkinConfirm.onclick = confirmWalkIn;
+}
+
+function openWalkinModal(){
+  ensureMassageServices();
+  const svcSel = $('walkin-service');
+  const priceInput = $('walkin-price');
+  if(svcSel){
+    const activeSvcs = DB.services.filter(s=>s.status);
+    // Display services WITHOUT price tag in the label
+    svcSel.innerHTML = activeSvcs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+    if(activeSvcs.length && priceInput){
+      priceInput.value = getDiscountedPrice(activeSvcs[0]);
+    }
+    svcSel.onchange = () => {
+      const selected = DB.services.find(s => s.id == svcSel.value);
+      if(selected && priceInput) priceInput.value = getDiscountedPrice(selected);
+    };
+  }
+
+  // Allow stylist name to be typed manually; supply datalist for convenience
+  const stylistList = $('stylist-list');
+  if(stylistList){
+    stylistList.innerHTML = DB.staff.filter(s=>s.status).map(s=>`<option value="${s.name}"></option>`).join('');
+  }
+  const staffInput = $('walkin-staff');
+  if(staffInput) staffInput.value = '';
+
+  const dateInput = $('walkin-date');
+  if(dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+
+  const timeInput = $('walkin-time');
+  if(timeInput){
+    const now = new Date();
+    timeInput.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  }
+
+  const nameInput = $('walkin-name');
+  if(nameInput) nameInput.value = '';
+  const phoneInput = $('walkin-phone');
+  if(phoneInput) phoneInput.value = '';
+
+  const annualCheck = $('walkin-annual');
+  if(annualCheck) annualCheck.checked = false;
+  const badge = $('walkin-annual-badge');
+  if(badge) badge.style.display = 'none';
+
+  openModal('walkin-modal');
 }
 
 function renderReceptionistSection(){
@@ -843,7 +905,7 @@ function renderReceptOverview(){
         <div class="recept-action-title">View Bookings</div>
         <div class="recept-action-desc">See all today's and upcoming appointments</div>
       </div>
-      <div class="recept-action-card" onclick="openModal('walkin-modal')">
+      <div class="recept-action-card" onclick="openWalkinModal()">
         <div class="recept-action-icon">➕</div>
         <div class="recept-action-title">Walk-in Booking</div>
         <div class="recept-action-desc">Create a quick appointment for walk-in clients</div>
@@ -881,7 +943,7 @@ function renderReceptBookings(){
     <h2 class="dash-section-title">📅 Bookings & Reservations</h2>
     <p class="dash-section-sub">View and manage all customer appointments</p>
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="btn btn-gold btn-sm" onclick="openModal('walkin-modal')">➕ New Walk-in Booking</button>
+      <button class="btn btn-gold btn-sm" onclick="openWalkinModal()">➕ New Walk-in Booking</button>
     </div>
     <div class="admin-section">
       <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Stylist</th><th>Date & Time</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
@@ -1138,11 +1200,33 @@ function generateBill(apptId){
   const isAnnual = a.isAnnualMember || !!member || (user?.membership === 'Annual');
 
   // Track session count if not already counted for this bill
-  if(isAnnual && !a.sessionCounted && member){
-    member.sessionsCompleted = (member.sessionsCompleted || 0) + 1;
-    a.sessionCounted = true;
-    a.annualSessionNumber = member.sessionsCompleted;
-    saveDB();
+  if(isAnnual && !a.sessionCounted){
+    if(member){
+      member.sessionsCompleted = (member.sessionsCompleted || 0) + 1;
+      a.sessionCounted = true;
+      a.annualSessionNumber = member.sessionsCompleted;
+      saveDB();
+      if(typeof apiUpdateAnnualMemberSessions === 'function') apiUpdateAnnualMemberSessions(member.phone, member.sessionsCompleted);
+      toast(`Annual Session #${member.sessionsCompleted} recorded for ${member.name}!`, 'info');
+    } else if(phone && phone !== 'N/A'){
+      member = {
+        name: user?.name || a.customerName || 'Annual Member',
+        phone: phone,
+        package: 'Annual Wellness Package',
+        totalSessions: 12,
+        sessionsCompleted: 1,
+        amount: total,
+        startDate: new Date().toISOString().split('T')[0],
+        status: 'Active'
+      };
+      if(!DB.annualMembers) DB.annualMembers = [];
+      DB.annualMembers.push(member);
+      a.sessionCounted = true;
+      a.annualSessionNumber = 1;
+      saveDB();
+      if(typeof apiSaveAnnualMember === 'function') apiSaveAnnualMember(member);
+      toast('Annual Member registered & Session #1 recorded!', 'info');
+    }
   }
 
   const sessNum = a.annualSessionNumber || member?.sessionsCompleted || 1;
@@ -1598,8 +1682,10 @@ function confirmWalkIn(){
       };
       if(!DB.annualMembers) DB.annualMembers = [];
       DB.annualMembers.push(member);
+      if(typeof apiSaveAnnualMember === 'function') apiSaveAnnualMember(member);
     } else if(member){
       member.sessionsCompleted = (member.sessionsCompleted || 0) + 1;
+      if(typeof apiUpdateAnnualMemberSessions === 'function') apiUpdateAnnualMemberSessions(member.phone, member.sessionsCompleted);
     }
   }
 

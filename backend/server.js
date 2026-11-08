@@ -64,6 +64,7 @@ async function getNextId(Model) {
 // 1. Full Database Sync Endpoint (for frontend initial load)
 app.get('/api/db/all', async (req, res) => {
   try {
+    try { await autoSeedDatabase(); } catch(e){}
     const users = await User.find().lean();
     const services = await Service.find().lean();
     const staff = await Staff.find().lean();
