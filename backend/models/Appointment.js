@@ -14,6 +14,11 @@ const appointmentSchema = new mongoose.Schema({
   paymentStatus: { type: String, enum: ['Paid', 'Pending', 'Refunded'], default: 'Paid' },
   paymentMethod: { type: String, default: 'UPI' },
   transactionId: { type: String, default: '' },
+  stylistName: { type: String, default: '' },
+  billNumber: { type: String, default: '' },
+  isAnnualMember: { type: Boolean, default: false },
+  annualSessionNumber: { type: Number },
+  sessionCounted: { type: Boolean, default: false },
   createdAt: { type: String, default: () => new Date().toISOString().split('T')[0] }
 }, { timestamps: true });
 

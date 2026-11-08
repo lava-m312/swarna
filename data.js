@@ -26,6 +26,12 @@ const DB = {
     { id: 13, name: 'Threading', category: 'Hair Removal', description: 'Precise eyebrow and upper lip threading.', price: 99, discount: 0, duration: 15, gender: 'Women', image: 'threading', status: true, rating: 0, reviews: 0, benefits: ['Perfect shape', 'Clean finish'], prep: [] },
     { id: 14, name: 'Party Makeup', category: 'Makeup', description: 'Glamorous party makeup with professional products.', price: 1299, discount: 0, duration: 60, gender: 'Women', image: 'partymakeup', status: true, rating: 0, reviews: 0, benefits: ['Long-lasting', 'HD finish'], prep: ['Come with clean face'] },
     { id: 15, name: 'Bridal Makeup', category: 'Makeup', description: 'Dream bridal makeup for your special day.', price: 4999, discount: 0, duration: 180, gender: 'Women', image: 'bridalmakeup', status: true, rating: 0, reviews: 0, benefits: ['All-day lasting', 'Trial included'], prep: ['Book 2 weeks in advance'] },
+    { id: 16, name: 'Body Massage', category: 'Massage & Body', description: 'Full body relaxation massage to relieve stress and tension.', price: 999, discount: 0, duration: 60, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Stress relief', 'Muscle relaxation', 'Better sleep'], prep: [] },
+    { id: 17, name: 'Swedish Massage', category: 'Massage & Body', description: 'Classic Swedish massage with long flowing strokes for deep relaxation.', price: 1299, discount: 0, duration: 75, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Deep relaxation', 'Improved circulation', 'Pain relief'], prep: [] },
+    { id: 18, name: 'Deep Tissue Massage', category: 'Massage & Body', description: 'Intensive deep tissue massage targeting chronic muscle tension.', price: 1499, discount: 0, duration: 90, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Chronic pain relief', 'Muscle recovery', 'Improved mobility'], prep: ['Drink water before'] },
+    { id: 19, name: 'Aromatherapy', category: 'Massage & Body', description: 'Therapeutic massage with essential aromatic oils for holistic healing.', price: 1199, discount: 0, duration: 60, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Mood enhancement', 'Stress relief', 'Skin nourishment'], prep: [] },
+    { id: 20, name: 'Head & Foot Massage', category: 'Massage & Body', description: 'Soothing head and foot reflexology massage for total relaxation.', price: 599, discount: 0, duration: 45, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Headache relief', 'Improved sleep', 'Reflexology benefits'], prep: [] },
+    { id: 21, name: 'Body Scrub & Polish', category: 'Massage & Body', description: 'Exfoliating body scrub and polish for smooth glowing skin.', price: 899, discount: 0, duration: 50, gender: 'Unisex', image: 'massage', status: true, rating: 0, reviews: 0, benefits: ['Dead skin removal', 'Smooth skin', 'Even skin tone'], prep: [] },
   ],
   staff: [
     { id: 1, name: 'Rahul Sharma', specialization: 'Hair Stylist & Grooming', experience: 8, rating: 0, reviews: 0, services: [1,2,3,4,5,6,7], status: true, workingHours: { start: '09:00', end: '19:00' }, daysOff: [0], about: 'Hair stylist specializing in modern cuts and color techniques.' },
@@ -46,6 +52,8 @@ const DB = {
   ],
   expenses: [],
   attendance: [],
+  annualMembers: [],
+  billCounter: 1,
   nextId: { user: 3, appointment: 1001, review: 1, coupon: 1, expense: 1, attendance: 1 },
 };
 
@@ -68,6 +76,8 @@ async function loadDB() {
       if (data.notifications) DB.notifications = data.notifications;
       if (data.memberships && data.memberships.length) DB.memberships = data.memberships;
       if (data.branches && data.branches.length) DB.branches = data.branches;
+      if (data.annualMembers) DB.annualMembers = data.annualMembers;
+      if (data.billCounter) DB.billCounter = data.billCounter;
       saveDB();
       return true;
     }
@@ -87,6 +97,8 @@ async function loadDB() {
     }
     if (!parsed.expenses) parsed.expenses = [];
     if (!parsed.attendance) parsed.attendance = [];
+    if (!parsed.annualMembers) parsed.annualMembers = [];
+    if (!parsed.billCounter) parsed.billCounter = 1;
     Object.assign(DB, parsed);
   }
   return false;
@@ -121,6 +133,7 @@ async function loginUser(emailOrPhone, password, requiredRole) {
     u.password === password
   );
   if (!user) return null;
+  if (user.disabled) return { error: 'This account has been disabled by administrator.' };
   if (requiredRole && user.role !== requiredRole) return null;
   currentUser = user;
   sessionStorage.setItem('swarna_session', JSON.stringify({ id: user.id, role: user.role }));
@@ -428,4 +441,53 @@ async function apiDeleteStaffAccount(uid) {
   }
   DB.users = DB.users.filter(u => u.id !== uid);
   saveDB();
+}
+
+async function apiDeleteBill(apptId) {
+  try {
+    await fetch(`${API_BASE_URL}/appointments/${apptId}`, { method: 'DELETE' });
+  } catch (e) {
+    console.warn('API delete appointment failed');
+  }
+}
+
+async function apiToggleUserDisabled(uid) {
+  try {
+    await fetch(`${API_BASE_URL}/users/${uid}/toggle-disabled`, { method: 'PATCH' });
+  } catch (e) {
+    console.warn('API toggle disabled failed');
+  }
+}
+
+async function apiSaveAnnualMember(memData) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/annual-members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(memData)
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('API save annual member failed');
+  }
+}
+
+async function apiUpdateAnnualMemberSessions(phone, delta) {
+  try {
+    await fetch(`${API_BASE_URL}/annual-members/${encodeURIComponent(phone)}/sessions`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delta })
+    });
+  } catch (e) {
+    console.warn('API update annual member sessions failed');
+  }
+}
+
+async function apiDeleteAnnualMember(phone) {
+  try {
+    await fetch(`${API_BASE_URL}/annual-members/${encodeURIComponent(phone)}`, { method: 'DELETE' });
+  } catch (e) {
+    console.warn('API delete annual member failed');
+  }
 }

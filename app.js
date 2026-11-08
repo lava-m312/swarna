@@ -41,7 +41,7 @@ function openModal(id){ const m=$(id); if(m)m.classList.add('open'); }
 function closeModal(id){ const m=$(id); if(m)m.classList.remove('open'); }
 function saveFavs(){ localStorage.setItem('favServices',JSON.stringify(favServices)); localStorage.setItem('favStylists',JSON.stringify(favStylists)); }
 function genderColor(g){ return g==='Men'?'badge-men':g==='Women'?'badge-women':'badge-unisex'; }
-function catEmoji(cat){ const m={'Hair':'💇','Beard & Grooming':'🧔','Skin & Facial':'🌸','Nails':'💅','Makeup':'💄','Hair Removal':'🪒','Packages':'🎁'}; return m[cat]||'✨'; }
+function catEmoji(cat){ const m={'Hair':'💇','Beard & Grooming':'🧔','Skin & Facial':'🌸','Nails':'💅','Makeup':'💄','Hair Removal':'🪒','Massage & Body':'💆','Packages':'🎁'}; return m[cat]||'✨'; }
 function imgBg(cat){ const m={'Hair':'img-bg-hair','Beard & Grooming':'img-bg-beard','Skin & Facial':'img-bg-skin','Nails':'img-bg-nail','Makeup':'img-bg-makeup','Hair Removal':'img-bg-removal','Packages':'img-bg-package'}; return m[cat]||'img-bg-hair'; }
 function starHTML(r){ let s=''; for(let i=1;i<=5;i++) s+=`<span class="star${i>r?' empty':''}">${i<=r?'★':'☆'}</span>`; return `<div class="stars">${s}</div>`; }
 function statusBadge(st){ const m={Confirmed:'badge-success',Pending:'badge-warning','In Progress':'badge-info',Completed:'badge-gold',Cancelled:'badge-danger','No Show':'badge-danger'}; return `<span class="badge ${m[st]||'badge-gray'}">${st}</span>`; }
@@ -389,6 +389,7 @@ function renderAdminSection2(){
     case 'expenses':      renderAdminExpenses(); break;
     case 'attendance':    renderAdminAttendance(); break;
     case 'staff-accounts':renderAdminStaffAccounts(); break;
+    case 'annual-members':renderAnnualMembers('admin'); break;
     case 'profile':       renderAdminProfile(); break;
     default: renderAdminHome();
   }
@@ -440,25 +441,48 @@ function renderAdminReceptionists(){
     <div class="admin-section">
       <div class="admin-table-title">
         <h3>🛎️ Receptionist Management</h3>
-        <button class="btn btn-gold btn-sm" onclick="toast('Add Receptionist — feature coming soon!','info')">+ Add Receptionist</button>
+        <button class="btn btn-gold btn-sm" onclick="switchAdminSection2('staff-accounts')">+ Add Receptionist</button>
       </div>
       <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>${receptionists.map(u=>`<tr>
         <td><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--rose-dark),var(--rose));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#2a0010">${u.name[0]}</div>${u.name}</div></td>
         <td>${u.email}</td><td>${u.phone}</td><td>${u.createdAt}</td>
-        <td><span class="badge badge-success">Active</span></td>
-        <td><div class="admin-action-row"><button class="btn btn-ghost btn-sm" onclick="toast('Edit feature coming soon!','info')">Edit</button><button class="btn btn-danger btn-sm" onclick="toast('Disable feature coming soon!','info')">Disable</button></div></td>
+        <td><span class="badge ${u.disabled ? 'badge-danger' : 'badge-success'}">${u.disabled ? 'Disabled' : 'Active'}</span></td>
+        <td><div class="admin-action-row"><button class="btn btn-ghost btn-sm" onclick="switchAdminSection2('staff-accounts')">Edit</button><button class="btn ${u.disabled ? 'btn-success' : 'btn-danger'} btn-sm" onclick="toggleReceptionist(${u.id})">${u.disabled ? 'Enable' : 'Disable'}</button></div></td>
       </tr>`).join('')}</tbody></table></div>
     </div>`;
+}
+function toggleReceptionist(uid){
+  const u = DB.users.find(x => x.id === uid);
+  if(!u) return;
+  u.disabled = !u.disabled;
+  saveDB();
+  apiToggleUserDisabled(uid);
+  toast(u.disabled ? `${u.name} has been disabled` : `${u.name} has been enabled`, u.disabled ? 'info' : 'success');
+  renderAdminReceptionists();
+}
+function switchAdminSection2(section){
+  adminSection2 = section;
+  document.querySelectorAll('#admin .sidebar-item').forEach(x => {
+    x.classList.toggle('active', x.dataset.section === section);
+  });
+  renderAdminSection2();
 }
 
 function renderAdminCustomers(){
   const customers=DB.users.filter(u=>u.role==='customer');
-  $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>Customer Management</h3><input class="search-admin" placeholder="Search..." oninput="filterTable(this,'cust-table')"></div><div class="admin-table-wrap"><table class="admin-table" id="cust-table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Appointments</th><th>Spent</th><th>Membership</th></tr></thead><tbody>${customers.map(u=>{const appts=DB.appointments.filter(a=>a.userId===u.id);const spent=appts.filter(a=>a.paymentStatus==='Paid').reduce((s,a)=>s+a.amount,0);return `<tr><td>${u.name}</td><td>${u.email}</td><td>${u.phone}</td><td>${appts.length}</td><td>₹${spent}</td><td>${u.membership?`<span class="badge badge-gold">${u.membership}</span>`:'None'}</td></tr>`;}).join('')}</tbody></table></div></div>`;
+  $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>Customer Management (${customers.length})</h3><input class="search-admin" placeholder="Search..." oninput="filterTable(this,'cust-table')"></div><div class="admin-table-wrap"><table class="admin-table" id="cust-table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Appointments</th><th>Spent</th><th>Membership</th><th>Annual Sessions</th></tr></thead><tbody>${customers.map(u=>{
+    const appts=DB.appointments.filter(a=>a.userId===u.id);
+    const spent=appts.filter(a=>a.paymentStatus==='Paid').reduce((s,a)=>s+a.amount,0);
+    const mem = DB.annualMembers?.find(m=>m.phone && m.phone===u.phone);
+    const isAnnual = !!mem || u.membership === 'Annual';
+    const sessions = mem ? `${mem.sessionsCompleted || 0} / ${mem.totalSessions || 12}` : (isAnnual ? '1 session' : '—');
+    return `<tr><td>${u.name}</td><td>${u.email}</td><td>${u.phone}</td><td>${appts.length}</td><td>₹${spent}</td><td>${isAnnual?`<span class="badge badge-gold">👑 Annual</span>`:(u.membership?`<span class="badge badge-gold">${u.membership}</span>`:'None')}</td><td><span class="badge ${isAnnual?'badge-gold':'badge-gray'}">${sessions}</span></td></tr>`;
+  }).join('')}</tbody></table></div></div>`;
 }
 function filterTable(input,tableId){ document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr=>tr.style.display=tr.textContent.toLowerCase().includes(input.value.toLowerCase())?'':'none'); }
 function renderAdminAppts(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>All Appointments</h3><input class="search-admin" placeholder="Search..." oninput="filterAdminAppts(this.value)" id="appt-search"></div><div class="admin-table-wrap"><table class="admin-table" id="appt-table"><thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Stylist</th><th>Date & Time</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DB.appointments.map(a=>adminApptRow(a)).join('')}</tbody></table></div></div>`; }
-function adminApptRow(a){ const svc=DB.services.find(s=>s.id===a.serviceId); const user=DB.users.find(u=>u.id===a.userId); const staff=DB.staff.find(s=>s.id===a.staffId); return `<tr><td>#${a.id}</td><td>${user?.name||'—'}</td><td>${svc?.name||'—'}</td><td>${staff?.name||'—'}</td><td>${a.date} ${formatTime(a.time)}</td><td>₹${a.amount}</td><td>${statusBadge(a.status)}</td><td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="updateApptStatus(${a.id},'Completed')">✓ Done</button>`:''}${a.status!=='Cancelled'?`<button class="btn btn-danger btn-sm" onclick="updateApptStatus(${a.id},'Cancelled')">✕</button>`:''}</div></td></tr>`; }
+function adminApptRow(a){ const svc=DB.services.find(s=>s.id===a.serviceId); const user=DB.users.find(u=>u.id===a.userId); const staff=DB.staff.find(s=>s.id===a.staffId); return `<tr><td>#${a.id}</td><td>${user?.name||'—'}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${a.date} ${formatTime(a.time)}</td><td>₹${a.amount}</td><td>${statusBadge(a.status)}</td><td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="updateApptStatus(${a.id},'Completed')">✓ Done</button>`:''}${a.status!=='Cancelled'?`<button class="btn btn-danger btn-sm" onclick="updateApptStatus(${a.id},'Cancelled')">✕</button>`:''}<button class="btn btn-outline btn-sm" onclick="generateBill(${a.id})">🧾 Bill</button></div></td></tr>`; }
 function filterAdminAppts(q){ document.querySelectorAll('#appt-table tbody tr').forEach(tr=>{ tr.style.display=tr.textContent.toLowerCase().includes(q.toLowerCase())?'':'none'; }); }
 async function updateApptStatus(id,status){ await apiUpdateApptStatus(id,status); renderAdminAppts(); toast(`Appointment ${status}`,'success'); }
 function renderAdminServices(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>Services Management</h3><button class="btn btn-gold btn-sm" onclick="openAddServiceModal()">+ Add Service</button></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Name</th><th>Category</th><th>Gender</th><th>Price</th><th>Discount</th><th>Duration</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DB.services.map(s=>`<tr><td>${s.name}</td><td>${s.category}</td><td><span class="badge ${genderColor(s.gender)}">${s.gender}</span></td><td>₹${s.price}</td><td>${s.discount?s.discount+'%':'—'}</td><td>${s.duration} min</td><td><span class="badge ${s.status?'badge-success':'badge-danger'}">${s.status?'Active':'Disabled'}</span></td><td><div class="admin-action-row"><button class="btn btn-ghost btn-sm" onclick="toggleService(${s.id})">${s.status?'Disable':'Enable'}</button></div></td></tr>`).join('')}</tbody></table></div></div>`; }
@@ -467,7 +491,48 @@ function openAddServiceModal(){ openModal('add-service-modal'); $('save-service'
 async function saveService(){ const name=$('svc-name').value.trim(); if(!name)return toast('Enter service name','error'); const svcData={name,category:$('svc-cat').value,price:parseInt($('svc-price').value)||0,discount:parseInt($('svc-disc').value)||0,duration:parseInt($('svc-dur').value)||30,gender:$('svc-gender').value,description:$('svc-desc').value||name,image:'new',status:true,rating:0,reviews:0,benefits:[],prep:[]}; await apiSaveService(svcData); closeModal('add-service-modal');renderAdminServices();toast('Service added!','success'); }
 function renderAdminStaff(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>Staff Management</h3><button class="btn btn-gold btn-sm">+ Add Staff</button></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Name</th><th>Specialization</th><th>Experience</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DB.staff.map(s=>`<tr><td><div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dark),var(--bg4));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">${s.name[0]}</div>${s.name}</div></td><td>${s.specialization}</td><td>${s.experience} yrs</td><td>⭐ ${s.rating}</td><td><span class="badge ${s.status?'badge-success':'badge-danger'}">${s.status?'Active':'Off'}</span></td><td><div class="admin-action-row"><button class="btn btn-ghost btn-sm" onclick="toggleStaff(${s.id})">${s.status?'Disable':'Enable'}</button></div></td></tr>`).join('')}</tbody></table></div></div>`; }
 async function toggleStaff(id){ await apiToggleStaff(id); renderAdminStaff(); }
-function renderAdminPayments(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>Payments & Revenue</h3></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Txn ID</th><th>Customer</th><th>Service</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th></tr></thead><tbody>${DB.appointments.filter(a=>a.transactionId).map(a=>{const svc=DB.services.find(s=>s.id===a.serviceId);const user=DB.users.find(u=>u.id===a.userId);return `<tr><td>${a.transactionId}</td><td>${user?.name||'—'}</td><td>${svc?.name||'—'}</td><td>₹${a.amount}</td><td>${a.paymentMethod}</td><td><span class="badge ${a.paymentStatus==='Paid'?'badge-success':'badge-warning'}">${a.paymentStatus}</span></td><td>${a.createdAt}</td></tr>`;}).join('')}</tbody></table></div></div>`; }
+function renderAdminPayments(){
+  const payments = DB.appointments.filter(a => a.transactionId || a.billNumber || a.amount);
+  const totalRev = payments.filter(a => a.paymentStatus==='Paid').reduce((s,a)=>s+(a.amount||0), 0);
+  $('admin-content').innerHTML=`<div class="admin-section">
+    <div class="admin-table-title">
+      <div>
+        <h3>Payments &amp; Revenue</h3>
+        <p style="font-size:12px;color:var(--text3);margin-top:2px">Total Revenue: <b style="color:var(--gold)">₹${totalRev.toLocaleString('en-IN')}</b> | Total Bills: <b>${payments.length}</b></p>
+      </div>
+      <input class="search-admin" placeholder="Search bills..." oninput="filterTable(this,'payments-table')">
+    </div>
+    <div class="admin-table-wrap"><table class="admin-table" id="payments-table"><thead><tr><th>Bill / Txn ID</th><th>Customer</th><th>Phone</th><th>Service</th><th>Stylist</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+    <tbody>${payments.map(a=>{
+      const svc=DB.services.find(s=>s.id===a.serviceId);
+      const user=DB.users.find(u=>u.id===a.userId);
+      const billNo = a.billNumber ? `#BILL-${a.billNumber}` : (a.transactionId || `#${a.id}`);
+      const isAnnual = a.isAnnualMember || (user?.membership==='Annual');
+      return `<tr>
+        <td><b>${billNo}</b> ${isAnnual?'<span class="badge badge-gold" style="font-size:10px">👑 Annual</span>':''}</td>
+        <td>${user?.name||a.customerName||'Walk-in'}</td>
+        <td>${user?.phone||a.customerPhone||'—'}</td>
+        <td>${svc?.name||'—'}</td>
+        <td>${a.stylistName||'—'}</td>
+        <td>₹${a.amount}</td>
+        <td>${a.paymentMethod||'—'}</td>
+        <td><span class="badge ${a.paymentStatus==='Paid'?'badge-success':'badge-warning'}">${a.paymentStatus||'Paid'}</span></td>
+        <td>${a.createdAt||a.date}</td>
+        <td><div class="admin-action-row"><button class="btn btn-outline btn-sm" onclick="generateBill(${a.id})" title="View Bill">🧾</button><button class="btn btn-danger btn-sm" onclick="deleteBill(${a.id})" title="Delete Bill">🗑️ Delete</button></div></td>
+      </tr>`;
+    }).join('')}</tbody></table></div></div>`;
+}
+function deleteBill(apptId){
+  if(!confirm('Are you sure you want to delete this bill record? This will permanently remove the bill and transaction.')) return;
+  const idx = DB.appointments.findIndex(a => a.id === apptId);
+  if(idx !== -1){
+    DB.appointments.splice(idx, 1);
+    saveDB();
+    apiDeleteBill(apptId);
+    toast('Bill deleted successfully', 'success');
+    renderAdminPayments();
+  }
+}
 
 // ===== EXPENSES PANEL =====
 function renderAdminExpenses(){
@@ -687,12 +752,45 @@ function initReceptionistSidebar(){
 
   // Pre-populate walk-in modal
   const svcSel = $('walkin-service');
+  const priceInput = $('walkin-price');
   if(svcSel){
-    svcSel.innerHTML = DB.services.filter(s=>s.status).map(s=>`<option value="${s.id}">${s.name} — ₹${getDiscountedPrice(s)}</option>`).join('');
+    const activeSvcs = DB.services.filter(s=>s.status);
+    svcSel.innerHTML = activeSvcs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+    if(activeSvcs.length && priceInput && !priceInput.value){
+      priceInput.value = getDiscountedPrice(activeSvcs[0]);
+    }
+    svcSel.onchange = () => {
+      const selected = DB.services.find(s => s.id == svcSel.value);
+      if(selected && priceInput) priceInput.value = getDiscountedPrice(selected);
+    };
   }
-  const staffSel = $('walkin-staff');
-  if(staffSel){
-    staffSel.innerHTML = DB.staff.filter(s=>s.status).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const stylistList = $('stylist-list');
+  if(stylistList){
+    stylistList.innerHTML = DB.staff.filter(s=>s.status).map(s=>`<option value="${s.name}"></option>`).join('');
+  }
+  const phoneInput = $('walkin-phone');
+  if(phoneInput){
+    phoneInput.oninput = () => {
+      const p = phoneInput.value.trim();
+      const annualCheck = $('walkin-annual');
+      const badge = $('walkin-annual-badge');
+      if(!p || p.length < 5){
+        if(badge) badge.style.display = 'none';
+        return;
+      }
+      const mem = DB.annualMembers?.find(m => m.phone === p);
+      if(mem){
+        if(annualCheck) annualCheck.checked = true;
+        if(badge){
+          badge.style.display = 'block';
+          badge.innerHTML = `👑 <b>Annual Member Recognized!</b> (${mem.name || 'Member'}) — <b>${mem.sessionsCompleted || 0}</b> sessions done`;
+        }
+        const nameInput = $('walkin-name');
+        if(nameInput && !nameInput.value.trim() && mem.name) nameInput.value = mem.name;
+      } else {
+        if(badge) badge.style.display = 'none';
+      }
+    };
   }
   const walkinDate = $('walkin-date');
   if(walkinDate) walkinDate.value = new Date().toISOString().split('T')[0];
@@ -705,11 +803,12 @@ function renderReceptionistSection(){
   const c = $('recept-content');
   if(!c) return;
   switch(receptSection2){
-    case 'overview':    renderReceptOverview(); break;
-    case 'bookings':    renderReceptBookings(); break;
-    case 'customers':   renderReceptCustomers(); break;
-    case 'attendance':  renderReceptAttendance(); break;
-    case 'rec-profile': renderReceptProfile(); break;
+    case 'overview':       renderReceptOverview(); break;
+    case 'bookings':       renderReceptBookings(); break;
+    case 'customers':      renderReceptCustomers(); break;
+    case 'attendance':     renderReceptAttendance(); break;
+    case 'annual-members': renderAnnualMembers('receptionist'); break;
+    case 'rec-profile':    renderReceptProfile(); break;
     default: renderReceptOverview();
   }
 }
@@ -790,7 +889,8 @@ function renderReceptBookings(){
         const svc=DB.services.find(s=>s.id===a.serviceId);
         const user=DB.users.find(u=>u.id===a.userId);
         const staff=DB.staff.find(s=>s.id===a.staffId);
-        return `<tr><td>#${a.id}</td><td>${user?.name||'Walk-in'}</td><td>${svc?.name||'—'}</td><td>${staff?.name||'—'}</td><td>${a.date} ${formatTime(a.time)}</td><td>₹${a.amount}</td><td>${statusBadge(a.status)}</td>
+        const isAnnual = a.isAnnualMember || (user?.membership==='Annual');
+        return `<tr><td>#${a.id} ${isAnnual?'<span class="badge badge-gold" style="font-size:10px">👑 Annual</span>':''}</td><td>${user?.name||a.customerName||'Walk-in'}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${a.date} ${formatTime(a.time)}</td><td>₹${a.amount}</td><td>${statusBadge(a.status)}</td>
         <td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(${a.id},'In Progress')">Check In</button>`:''}${a.status==='In Progress'?`<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus(${a.id},'Completed')">Done</button>`:''}${a.status!=='Cancelled'&&a.status!=='Completed'?`<button class="btn btn-danger btn-sm" onclick="receptionistUpdateStatus(${a.id},'Cancelled')">✕</button>`:''}${a.status==='Completed'||a.status==='In Progress'||a.status==='Confirmed'?`<button class="btn btn-outline btn-sm" onclick="generateBill(${a.id})">🧾 Bill</button>`:''}</div></td></tr>`;
       }).join('')}</tbody></table></div>
     </div>`;
@@ -809,7 +909,7 @@ function renderReceptCheckInOut(){
         const user=DB.users.find(u=>u.id===a.userId);
         const staff=DB.staff.find(s=>s.id===a.staffId);
         const statusClass = a.status==='Confirmed'?'status-waiting':a.status==='In Progress'?'status-checkin':'status-checkout';
-        return `<tr><td>${user?.name||'Walk-in'}</td><td>${svc?.name||'—'}</td><td>${staff?.name||'—'}</td><td>${formatTime(a.time)}</td><td>₹${a.amount}</td>
+        return `<tr><td>${user?.name||'Walk-in'}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${formatTime(a.time)}</td><td>₹${a.amount}</td>
         <td><span class="${statusClass}">${a.status==='Confirmed'?'Waiting':a.status==='In Progress'?'Checked In':'Done'}</span></td>
         <td><div class="admin-action-row">
           ${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(${a.id},'In Progress')">✓ Check In</button>`:''}
@@ -832,13 +932,17 @@ function renderReceptCustomers(){
         <h3>All Customers (${customers.length})</h3>
         <input class="search-admin" placeholder="Search customers..." oninput="filterTable(this,'recept-cust-table')">
       </div>
-      <div class="admin-table-wrap"><table class="admin-table" id="recept-cust-table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Bookings</th><th>Total Spent</th><th>Membership</th></tr></thead>
+      <div class="admin-table-wrap"><table class="admin-table" id="recept-cust-table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Bookings</th><th>Total Spent</th><th>Membership</th><th>Annual Sessions</th></tr></thead>
       <tbody>${customers.map(u=>{
         const appts=DB.appointments.filter(a=>a.userId===u.id);
         const spent=appts.filter(a=>a.paymentStatus==='Paid').reduce((s,a)=>s+a.amount,0);
+        const mem = DB.annualMembers?.find(m=>m.phone && m.phone===u.phone);
+        const isAnnual = !!mem || u.membership === 'Annual';
+        const sessions = mem ? `${mem.sessionsCompleted || 0} / ${mem.totalSessions || 12}` : (isAnnual ? '1 session' : '—');
         return `<tr><td><div style="display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dark),var(--bg4));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${u.name[0]}</div>${u.name}</div></td>
         <td>${u.email}</td><td>${u.phone}</td><td>${appts.length}</td><td>₹${spent}</td>
-        <td>${u.membership?`<span class="badge badge-gold">${u.membership}</span>`:'—'}</td></tr>`;
+        <td>${isAnnual?`<span class="badge badge-gold">👑 Annual</span>`:(u.membership?`<span class="badge badge-gold">${u.membership}</span>`:'—')}</td>
+        <td><span class="badge ${isAnnual?'badge-gold':'badge-gray'}">${sessions}</span></td></tr>`;
       }).join('')}</tbody></table></div>
     </div>`;
 }
@@ -1010,23 +1114,46 @@ function generateBill(apptId){
   const staff = DB.staff.find(s => s.id === a.staffId);
 
   // Compute amounts
-  const basePrice  = svc ? getDiscountedPrice(svc) : a.amount;
+  const total      = a.amount || (svc ? getDiscountedPrice(svc) : 0);
   const discount   = a.discount || 0;
-  const tax        = a.tax || Math.round(basePrice * 0.05);
-  const total      = a.amount;
+  const basePrice  = a.tax ? (total - a.tax) : Math.round(total / 1.05);
+  const tax        = a.tax || (total - basePrice);
+
+  // Bill No starting from 0001
+  if(!a.billNumber){
+    if(!DB.billCounter) DB.billCounter = 1;
+    a.billNumber = String(DB.billCounter++).padStart(4, '0');
+    saveDB();
+  }
+  const billNumStr = '#BILL-' + a.billNumber;
 
   // Bill No & generated datetime
   const now = new Date();
   const billDT = now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) +
                  ' ' + now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
 
+  // Check annual package holder
+  const phone = user?.phone || a.customerPhone;
+  const member = (phone && phone !== 'N/A' && DB.annualMembers?.find(m => m.phone === phone)) || null;
+  const isAnnual = a.isAnnualMember || !!member || (user?.membership === 'Annual');
+
+  // Track session count if not already counted for this bill
+  if(isAnnual && !a.sessionCounted && member){
+    member.sessionsCompleted = (member.sessionsCompleted || 0) + 1;
+    a.sessionCounted = true;
+    a.annualSessionNumber = member.sessionsCompleted;
+    saveDB();
+  }
+
+  const sessNum = a.annualSessionNumber || member?.sessionsCompleted || 1;
+
   // Populate modal fields
-  $('bill-id').textContent        = '#BILL-' + String(apptId).padStart(4,'0');
+  $('bill-id').textContent        = billNumStr;
   $('bill-datetime').textContent  = billDT;
   $('bill-cust-name').textContent = user?.name  || a.customerName || 'Walk-in Customer';
-  $('bill-cust-phone').textContent= user?.phone || a.customerPhone || 'N/A';
+  $('bill-cust-phone').textContent= phone || 'N/A';
   $('bill-service').textContent   = svc?.name   || '—';
-  $('bill-stylist').textContent   = staff?.name || 'Any Available';
+  $('bill-stylist').textContent   = a.stylistName || staff?.name || 'Any Available';
   $('bill-date').textContent      = formatDate(a.date);
   $('bill-time').textContent      = formatTime(a.time);
   $('bill-duration').textContent  = `${a.duration || svc?.duration || '—'} min`;
@@ -1036,6 +1163,18 @@ function generateBill(apptId){
   $('bill-tax').textContent       = `₹${tax}`;
   $('bill-total').textContent     = `₹${total}`;
   $('bill-pay-status').textContent= a.paymentStatus || 'Paid';
+
+  // Package row
+  const pkgRow = $('bill-package-row');
+  const pkgVal = $('bill-package-val');
+  if(pkgRow && pkgVal){
+    if(isAnnual){
+      pkgRow.style.display = 'flex';
+      pkgVal.textContent = `👑 Annual Package Holder — Session #${sessNum}`;
+    } else {
+      pkgRow.style.display = 'none';
+    }
+  }
 
   openModal('bill-modal');
 }
@@ -1057,16 +1196,8 @@ function printBill(){
   const tax       = $('bill-tax')?.textContent       || '';
   const total     = $('bill-total')?.textContent     || '';
   const payStatus = $('bill-pay-status')?.textContent|| 'Paid';
-
-  // 80mm thermal printer — 42 chars per line at typical font size
-  const LINE  = '----------------------------------------';
-  const DLINE = '========================================';
-
-  // Helper: pad a label + value to fill 42 chars
-  function row(label, value) {
-    const pad = 42 - label.length - String(value).length;
-    return label + ' '.repeat(Math.max(1, pad)) + value;
-  }
+  const pkgVal    = $('bill-package-val')?.textContent || '';
+  const isPkgVisible = $('bill-package-row')?.style.display !== 'none';
 
   const printWin = window.open('', '_blank', 'width=380,height=720');
   printWin.document.write(`
@@ -1077,7 +1208,7 @@ function printBill(){
   <meta charset="UTF-8">
   <style>
     @page {
-      size: 80mm auto;       /* 80mm thermal roll */
+      size: 80mm auto;
       margin: 4mm 4mm;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
@@ -1086,13 +1217,12 @@ function printBill(){
       font-size: 12px;
       color: #000;
       background: #fff;
-      width: 72mm;           /* usable print width on 80mm paper */
+      width: 72mm;
       padding: 0;
     }
     .center  { text-align: center; }
     .bold    { font-weight: bold; }
     .large   { font-size: 15px; }
-    .xlarge  { font-size: 18px; font-weight: bold; }
     .line    { border-top: 1px dashed #000; margin: 4px 0; }
     .dline   { border-top: 2px solid #000; margin: 4px 0; }
     .row     { display: flex; justify-content: space-between; padding: 1px 0; }
@@ -1123,7 +1253,9 @@ function printBill(){
   <div class="center">
     <div class="logo-text">SWARNA'S</div>
     <div class="tagline">Unisex Saloon &amp; Spa</div>
-    <div style="font-size:10px;margin-top:2px">Koramangala, Bangalore</div>
+    <div style="font-size:10px;margin-top:2px">Mig34 1st Floor, KKHB Colony, Adichunchanagiri Road,</div>
+    <div style="font-size:10px">RMP Quarters Rd, LIG 3rd Stage, Kuvempu Nagara,</div>
+    <div style="font-size:10px">Mysuru, Karnataka 570023</div>
     <div style="font-size:10px">Ph: +91 98765 43210</div>
     <div style="font-size:10px">GSTIN: 29AAACS1234A1Z5</div>
   </div>
@@ -1144,6 +1276,7 @@ function printBill(){
   <div class="section-title">Customer</div>
   <div class="row"><span>Name</span><span><b>${custName}</b></span></div>
   <div class="row"><span>Phone</span><span>${custPhone}</span></div>
+  ${isPkgVisible ? `<div class="row" style="margin-top:2px;font-weight:bold"><span>Package</span><span>${pkgVal}</span></div>` : ''}
 
   <div class="line"></div>
 
@@ -1197,12 +1330,232 @@ function printBill(){
   printWin.document.close();
 }
 
+// ===== ANNUAL MEMBERSHIP MANAGEMENT PANEL =====
+function renderAnnualMembers(role){
+  const targetId = role === 'admin' ? 'admin-content' : 'recept-content';
+  const c = $(targetId);
+  if(!c) return;
+
+  if(!DB.annualMembers) DB.annualMembers = [];
+
+  c.innerHTML = `
+    <h2 class="dash-section-title">👑 Annual Membership Management</h2>
+    <p class="dash-section-sub">Store annual package memberships, look up by phone number, and track completed sessions</p>
+
+    <!-- Quick Phone Lookup Card -->
+    <div class="admin-section" style="border: 1px solid rgba(201,168,76,0.4)">
+      <h3 style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        🔍 Customer Phone Lookup & Recognition
+      </h3>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:12px">Type phone number to instantly recognize if customer is an annual package holder and view their session history:</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <input id="am-lookup-phone" class="form-control" type="tel" placeholder="Enter 10-digit phone number" style="max-width:320px" oninput="handleAnnualPhoneLookup('${role}')">
+        <button class="btn btn-gold" onclick="handleAnnualPhoneLookup('${role}')">Search Member</button>
+      </div>
+      <div id="am-lookup-result" style="margin-top:14px"></div>
+    </div>
+
+    <!-- Register New Annual Member -->
+    <div class="admin-section">
+      <h3 style="margin-bottom:16px">➕ Register New Annual Package Member</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px">
+        <div class="form-group"><label class="form-label">Full Name</label><input id="nam-name" class="form-control" placeholder="Member name"></div>
+        <div class="form-group"><label class="form-label">Phone Number</label><input id="nam-phone" class="form-control" type="tel" placeholder="10-digit phone"></div>
+        <div class="form-group"><label class="form-label">Package Name</label>
+          <select id="nam-package" class="form-control">
+            <option value="Annual Wellness Package">Annual Wellness Package (12 Sessions)</option>
+            <option value="Annual Spa Luxury Package">Annual Spa Luxury Package (24 Sessions)</option>
+            <option value="Annual Head-to-Toe Grooming">Annual Head-to-Toe Grooming (18 Sessions)</option>
+            <option value="Custom Annual Package">Custom Annual Package</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Total Sessions Included</label><input id="nam-sessions" class="form-control" type="number" value="12" min="1"></div>
+        <div class="form-group"><label class="form-label">Package Price (₹)</label><input id="nam-amount" class="form-control" type="number" value="9999" min="0"></div>
+        <div class="form-group"><label class="form-label">Payment Mode</label>
+          <select id="nam-payment" class="form-control"><option>UPI</option><option>Card</option><option>Cash</option></select>
+        </div>
+      </div>
+      <button class="btn btn-gold" onclick="registerAnnualMember('${role}')">👑 Register Annual Member</button>
+    </div>
+
+    <!-- All Annual Members List -->
+    <div class="admin-section">
+      <div class="admin-table-title">
+        <h3>👥 All Annual Members (${DB.annualMembers.length})</h3>
+        <input class="search-admin" placeholder="Search members..." oninput="filterTable(this,'annual-members-table')">
+      </div>
+      ${DB.annualMembers.length ? `
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="annual-members-table">
+          <thead>
+            <tr><th>Member</th><th>Phone</th><th>Package</th><th>Sessions Done</th><th>Progress</th><th>Registered Date</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            ${DB.annualMembers.map(m => {
+              const done = m.sessionsCompleted || 0;
+              const total = m.totalSessions || 12;
+              const pct = Math.min(100, Math.round((done / total) * 100));
+              return `<tr>
+                <td><b>${m.name}</b></td>
+                <td>${m.phone}</td>
+                <td><span class="badge badge-gold">${m.package || 'Annual Package'}</span></td>
+                <td><b style="font-size:15px;color:var(--gold)">${done}</b> / ${total}</td>
+                <td style="min-width:120px">
+                  <div style="background:var(--bg3);border-radius:10px;height:8px;overflow:hidden;margin-bottom:4px">
+                    <div style="background:var(--gold);height:100%;width:${pct}%"></div>
+                  </div>
+                  <span style="font-size:11px;color:var(--text3)">${pct}% completed</span>
+                </td>
+                <td>${m.startDate || '—'}</td>
+                <td>
+                  <div class="admin-action-row">
+                    <button class="btn btn-success btn-sm" onclick="incrementAnnualMemberSession('${m.phone}', 1, '${role}')" title="Add 1 completed session">+ Session</button>
+                    <button class="btn btn-ghost btn-sm" onclick="incrementAnnualMemberSession('${m.phone}', -1, '${role}')" title="Subtract 1 session" ${done <= 0 ? 'disabled' : ''}>- Session</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteAnnualMember('${m.phone}', '${role}')" title="Remove member">🗑️</button>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>` : '<div class="empty-state"><div class="empty-icon">👑</div><div class="empty-title">No Annual Members Registered Yet</div><div class="empty-sub">Register members above to track annual package sessions.</div></div>'}
+    </div>
+  `;
+}
+
+function handleAnnualPhoneLookup(role){
+  const input = $('am-lookup-phone');
+  const resDiv = $('am-lookup-result');
+  if(!input || !resDiv) return;
+  const phone = input.value.trim();
+  if(!phone){
+    resDiv.innerHTML = '';
+    return;
+  }
+  const mem = DB.annualMembers?.find(m => m.phone === phone);
+  if(!mem){
+    resDiv.innerHTML = `
+      <div style="padding:14px;background:rgba(231,76,60,0.1);border:1px solid var(--danger);border-radius:8px;color:#ff8585;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <span>❌ No Annual Membership found for phone <b>${phone}</b>.</span>
+        <button class="btn btn-gold btn-sm" onclick="$('nam-phone').value='${phone}';$('nam-name').focus()">Register This Customer</button>
+      </div>`;
+    return;
+  }
+  const done = mem.sessionsCompleted || 0;
+  const total = mem.totalSessions || 12;
+  const remaining = Math.max(0, total - done);
+  resDiv.innerHTML = `
+    <div style="padding:16px;background:rgba(201,168,76,0.12);border:1px solid var(--gold);border-radius:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:18px;font-weight:700;color:var(--gold)">👑 ${mem.name} — Recognized Annual Member!</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:4px">Phone: <b>${mem.phone}</b> | Package: <b>${mem.package}</b> | Joined: <b>${mem.startDate}</b></div>
+        </div>
+        <span class="badge badge-gold" style="font-size:13px;padding:6px 12px">Active Package</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:14px">
+        <div style="background:var(--bg3);padding:10px 14px;border-radius:8px">
+          <div style="font-size:11px;color:var(--text3)">SESSIONS DONE</div>
+          <div style="font-size:22px;font-weight:700;color:var(--gold)">${done}</div>
+        </div>
+        <div style="background:var(--bg3);padding:10px 14px;border-radius:8px">
+          <div style="font-size:11px;color:var(--text3)">TOTAL SESSIONS</div>
+          <div style="font-size:22px;font-weight:700">${total}</div>
+        </div>
+        <div style="background:var(--bg3);padding:10px 14px;border-radius:8px">
+          <div style="font-size:11px;color:var(--text3)">REMAINING</div>
+          <div style="font-size:22px;font-weight:700;color:var(--success)">${remaining}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-gold btn-sm" onclick="incrementAnnualMemberSession('${mem.phone}', 1, '${role}')">➕ Add Completed Session (+1)</button>
+        <button class="btn btn-ghost btn-sm" onclick="incrementAnnualMemberSession('${mem.phone}', -1, '${role}')" ${done <= 0 ? 'disabled' : ''}>➖ Deduct Session (-1)</button>
+      </div>
+    </div>
+  `;
+}
+
+function registerAnnualMember(role){
+  const name = $('nam-name')?.value.trim();
+  const phone = $('nam-phone')?.value.trim();
+  const pkg = $('nam-package')?.value;
+  const sessions = parseInt($('nam-sessions')?.value) || 12;
+  const amount = parseFloat($('nam-amount')?.value) || 0;
+  const method = $('nam-payment')?.value || 'Cash';
+
+  if(!name){ toast('Please enter member name','error'); return; }
+  if(!phone){ toast('Please enter 10-digit phone number','error'); return; }
+
+  if(!DB.annualMembers) DB.annualMembers = [];
+  const existing = DB.annualMembers.find(m => m.phone === phone);
+  if(existing){
+    toast('An annual membership already exists for this phone number','error');
+    return;
+  }
+
+  const member = {
+    name,
+    phone,
+    package: pkg,
+    totalSessions: sessions,
+    sessionsCompleted: 0,
+    amount,
+    paymentMethod: method,
+    startDate: new Date().toISOString().split('T')[0],
+    status: 'Active'
+  };
+
+  DB.annualMembers.push(member);
+
+  // Link to user in DB.users if exists or create
+  let user = DB.users.find(u => u.phone === phone);
+  if(!user){
+    const newId = DB.nextId.user++;
+    user = { id: newId, name, phone, email: `member${newId}@swarna.local`, password: '', role: 'customer', profileImage: '', membership: 'Annual', createdAt: new Date().toISOString().split('T')[0] };
+    DB.users.push(user);
+  } else {
+    user.membership = 'Annual';
+  }
+
+  saveDB();
+  apiSaveAnnualMember(member);
+  toast(`Annual Member ${name} registered successfully!`, 'success');
+  renderAnnualMembers(role);
+}
+
+function incrementAnnualMemberSession(phone, delta, role){
+  if(!DB.annualMembers) return;
+  const mem = DB.annualMembers.find(m => m.phone === phone);
+  if(!mem) return;
+  const current = mem.sessionsCompleted || 0;
+  const next = Math.max(0, current + delta);
+  mem.sessionsCompleted = next;
+  saveDB();
+  apiUpdateAnnualMemberSessions(phone, delta);
+  toast(`Updated sessions for ${mem.name}: ${next} / ${mem.totalSessions || 12}`, 'success');
+  renderAnnualMembers(role);
+}
+
+function deleteAnnualMember(phone, role){
+  if(!confirm('Are you sure you want to remove this annual membership?')) return;
+  const idx = DB.annualMembers.findIndex(m => m.phone === phone);
+  if(idx !== -1){
+    DB.annualMembers.splice(idx, 1);
+    saveDB();
+    apiDeleteAnnualMember(phone);
+    toast('Annual membership removed', 'info');
+    renderAnnualMembers(role);
+  }
+}
+
 // ===== WALK-IN BOOKING =====
 function confirmWalkIn(){
   const name   = $('walkin-name').value.trim();
   const phone  = $('walkin-phone').value.trim();
   const svcId  = parseInt($('walkin-service').value);
-  const stfId  = parseInt($('walkin-staff').value);
+  const stylistName = $('walkin-staff').value.trim();
+  const manualPrice = parseFloat($('walkin-price').value) || 0;
+  const isAnnual = $('walkin-annual').checked;
   const date   = $('walkin-date').value;
   const time   = $('walkin-time').value;
   const method = $('walkin-payment').value;
@@ -1214,36 +1567,80 @@ function confirmWalkIn(){
   let user = phone ? DB.users.find(u => u.phone === phone) : null;
   if(!user){
     const newId = DB.nextId.user++;
-    user = { id:newId, name, phone:phone||'N/A', email:`walkin${newId}@swarna.local`, password:'', role:'customer', profileImage:'', membership:null, createdAt:new Date().toISOString().split('T')[0] };
+    user = { id:newId, name, phone:phone||'N/A', email:`walkin${newId}@swarna.local`, password:'', role:'customer', profileImage:'', membership:isAnnual?'Annual':null, createdAt:new Date().toISOString().split('T')[0] };
     DB.users.push(user);
+  } else if(isAnnual && !user.membership) {
+    user.membership = 'Annual';
   }
 
   const svc = DB.services.find(s => s.id === svcId);
-  if(!svc){ toast('Invalid service','error'); return; }
-  const price = getDiscountedPrice(svc);
+  const price = manualPrice > 0 ? manualPrice : (svc ? getDiscountedPrice(svc) : 0);
   const tax   = Math.round(price * 0.05);
   const total = price + tax;
 
-  const appt = createAppointment({
+  // Find staff if matches name
+  const matchedStaff = DB.staff.find(s => s.name.toLowerCase() === stylistName.toLowerCase());
+  const stfId = matchedStaff ? matchedStaff.id : (DB.staff[0]?.id || 1);
+
+  // If annual member, update/track sessions
+  let member = phone ? DB.annualMembers?.find(m => m.phone === phone) : null;
+  if(isAnnual){
+    if(!member && phone){
+      member = {
+        name,
+        phone,
+        package: 'Annual Wellness Package',
+        totalSessions: 12,
+        sessionsCompleted: 1,
+        amount: price,
+        startDate: new Date().toISOString().split('T')[0],
+        status: 'Active'
+      };
+      if(!DB.annualMembers) DB.annualMembers = [];
+      DB.annualMembers.push(member);
+    } else if(member){
+      member.sessionsCompleted = (member.sessionsCompleted || 0) + 1;
+    }
+  }
+
+  if(!DB.billCounter) DB.billCounter = 1;
+  const assignedBillNumber = String(DB.billCounter++).padStart(4, '0');
+
+  const appt = {
+    id: DB.nextId.appointment++,
     userId: user.id,
     serviceId: svcId,
     staffId: stfId,
+    stylistName: stylistName || matchedStaff?.name || 'Assigned Stylist',
     date,
     time,
-    duration: svc.duration,
+    duration: svc?.duration || 60,
     amount: total,
     discount: 0,
     tax,
     paymentMethod: method,
-    transactionId: 'WLK' + Date.now().toString().slice(-6)
-  });
+    paymentStatus: 'Paid',
+    transactionId: 'WLK' + Date.now().toString().slice(-6),
+    billNumber: assignedBillNumber,
+    isAnnualMember: isAnnual,
+    annualSessionNumber: member ? member.sessionsCompleted : undefined,
+    sessionCounted: isAnnual,
+    status: 'Confirmed',
+    createdAt: new Date().toISOString().split('T')[0]
+  };
 
-  if(appt.error){ toast(appt.error,'error'); return; }
+  DB.appointments.push(appt);
+  saveDB();
 
   closeModal('walkin-modal');
   // Reset modal
-  ['walkin-name','walkin-phone'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
-  toast(`Walk-in booking confirmed for ${name}! Booking #${appt.id}`, 'success');
+  ['walkin-name','walkin-phone','walkin-staff','walkin-price'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
+  const annualCheck = $('walkin-annual');
+  if(annualCheck) annualCheck.checked = false;
+  const badge = $('walkin-annual-badge');
+  if(badge) badge.style.display = 'none';
+
+  toast(`Walk-in booking confirmed for ${name}! (Bill #${assignedBillNumber})${isAnnual ? ` — 👑 Session #${member?.sessionsCompleted || 1}` : ''}`, 'success');
   renderReceptionistSection();
 }
 

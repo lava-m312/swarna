@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['admin', 'receptionist', 'customer'], default: 'customer' },
   profileImage: { type: String, default: '' },
   membership: { type: String, default: null },
+  disabled: { type: Boolean, default: false },
   createdAt: { type: String, default: () => new Date().toISOString().split('T')[0] }
 }, { timestamps: true });
 

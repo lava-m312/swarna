@@ -198,6 +198,9 @@
         <button class="sidebar-item" data-section="staff-accounts" id="adm-nav-staff-accounts">
           <span class="sidebar-icon">🔑</span><span class="sidebar-label">Manage Logins</span>
         </button>
+        <button class="sidebar-item" data-section="annual-members" id="adm-nav-annual-members">
+          <span class="sidebar-icon">👑</span><span class="sidebar-label">Annual Members</span>
+        </button>
         <div class="sidebar-divider"></div>
         <button class="sidebar-item" data-section="profile" id="adm-nav-profile">
           <span class="sidebar-icon">👤</span><span class="sidebar-label">Profile</span>
@@ -250,6 +253,9 @@
         </button>
         <button class="sidebar-item" data-section="attendance" id="rec-nav-attendance">
           <span class="sidebar-icon">🗓️</span><span class="sidebar-label">Staff Attendance</span>
+        </button>
+        <button class="sidebar-item" data-section="annual-members" id="rec-nav-annual-members">
+          <span class="sidebar-icon">👑</span><span class="sidebar-label">Annual Members</span>
         </button>
         <div class="sidebar-divider"></div>
         <button class="sidebar-item" data-section="rec-profile" id="rec-nav-profile">
@@ -605,7 +611,7 @@
     <div class="modal-body">
       <div class="form-row">
         <div class="form-group"><label class="form-label">Service Name</label><input id="svc-name" class="form-control" placeholder="e.g. Haircut"></div>
-        <div class="form-group"><label class="form-label">Category</label><select id="svc-cat" class="form-control"><option>Hair</option><option>Beard &amp; Grooming</option><option>Skin &amp; Facial</option><option>Nails</option><option>Makeup</option><option>Hair Removal</option><option>Packages</option></select></div>
+        <div class="form-group"><label class="form-label">Category</label><select id="svc-cat" class="form-control"><option>Hair</option><option>Beard &amp; Grooming</option><option>Skin &amp; Facial</option><option>Nails</option><option>Makeup</option><option>Hair Removal</option><option>Massage &amp; Body</option><option>Packages</option></select></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Price (₹)</label><input id="svc-price" class="form-control" type="number" placeholder="499"></div>
@@ -651,7 +657,9 @@
         <img src="assets/logo.jpg" alt="Swarna" class="bill-logo-img">
         <div>
           <div class="bill-salon-name">Swarna's Unisex Saloon &amp; Spa</div>
-          <div class="bill-salon-addr">Koramangala, Bangalore — 📞 +91 98765 43210</div>
+          <div class="bill-salon-addr">Mig34 1st Floor, KKHB Colony, Adichunchanagiri Road,</div>
+          <div class="bill-salon-addr">RMP Quarters Rd, LIG 3rd Stage, Kuvempu Nagara,</div>
+          <div class="bill-salon-addr">Mysuru, Karnataka 570023</div>
           <div class="bill-salon-addr">GSTIN: 29AAACS1234A1Z5</div>
         </div>
       </div>
@@ -680,6 +688,7 @@
       <div class="bill-info-grid">
         <div class="bill-info-row"><span class="bill-info-key">Name</span><span class="bill-info-val" id="bill-cust-name">—</span></div>
         <div class="bill-info-row"><span class="bill-info-key">Phone</span><span class="bill-info-val" id="bill-cust-phone">—</span></div>
+        <div class="bill-info-row" id="bill-package-row" style="display:none"><span class="bill-info-key">Package</span><span class="bill-info-val" id="bill-package-val" style="color:var(--gold);font-weight:700">👑 Annual Package</span></div>
       </div>
 
       <div class="bill-divider"></div>
@@ -740,14 +749,24 @@
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Service</label><select id="walkin-service" class="form-control"></select></div>
-        <div class="form-group"><label class="form-label">Stylist</label><select id="walkin-staff" class="form-control"></select></div>
+        <div class="form-group"><label class="form-label">Price (₹)</label><input id="walkin-price" class="form-control" type="number" placeholder="Enter price" min="0"></div>
       </div>
       <div class="form-row">
+        <div class="form-group"><label class="form-label">Stylist Name</label><input id="walkin-staff" list="stylist-list" class="form-control" type="text" placeholder="Type stylist name"><datalist id="stylist-list"></datalist></div>
         <div class="form-group"><label class="form-label">Date</label><input id="walkin-date" class="form-control" type="date"></div>
-        <div class="form-group"><label class="form-label">Time</label><input id="walkin-time" class="form-control" type="time"></div>
       </div>
-      <div class="form-group"><label class="form-label">Payment Method</label>
-        <select id="walkin-payment" class="form-control"><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Card">Card</option></select>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Time</label><input id="walkin-time" class="form-control" type="time"></div>
+        <div class="form-group"><label class="form-label">Payment Method</label>
+          <select id="walkin-payment" class="form-control"><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Card">Card</option></select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:4px">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="walkin-annual" style="width:18px;height:18px;accent-color:var(--gold)">
+          <span>Annual Package Holder</span>
+        </label>
+        <div id="walkin-annual-badge" style="display:none;margin-top:6px;padding:8px 12px;background:rgba(201,168,76,0.15);border:1px solid var(--gold);border-radius:8px;font-size:12px;color:var(--gold-light)"></div>
       </div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('walkin-modal')">Cancel</button><button id="walkin-confirm" class="btn btn-gold">Confirm Booking</button></div>

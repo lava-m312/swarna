@@ -16,6 +16,7 @@ const Coupon = require('./models/Coupon');
 const Notification = require('./models/Notification');
 const Membership = require('./models/Membership');
 const Branch = require('./models/Branch');
+const AnnualMember = require('./models/AnnualMember');
 const autoSeedDatabase = require('./seedData');
 const connectDB = require('./db');
 
@@ -73,6 +74,7 @@ app.get('/api/db/all', async (req, res) => {
     const notifications = await Notification.find().lean();
     const memberships = await Membership.find().lean();
     const branches = await Branch.find().lean();
+    const annualMembers = await AnnualMember.find().lean();
 
     res.json({
       users,
@@ -84,7 +86,8 @@ app.get('/api/db/all', async (req, res) => {
       coupons,
       notifications,
       memberships,
-      branches
+      branches,
+      annualMembers
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -106,6 +109,9 @@ app.post('/api/auth/login', async (req, res) => {
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid username/email or password.' });
+    }
+    if (user.disabled) {
+      return res.status(403).json({ error: 'This account has been disabled by administrator.' });
     }
     if (role && user.role !== role) {
       return res.status(403).json({ error: `Access denied. Account is not a ${role}.` });
@@ -198,6 +204,19 @@ app.delete('/api/users/:id', async (req, res) => {
     const userId = Number(req.params.id);
     await User.deleteOne({ id: userId });
     res.json({ message: 'User deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/users/:id/toggle-disabled', async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const user = await User.findOne({ id: userId });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    user.disabled = !user.disabled;
+    await user.save();
+    res.json({ message: `User ${user.disabled ? 'disabled' : 'enabled'} successfully`, user });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -353,6 +372,77 @@ app.patch('/api/appointments/:id/status', async (req, res) => {
 
     await appt.save();
     res.json(appt);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/appointments/:id', async (req, res) => {
+  try {
+    const apptId = Number(req.params.id);
+    const result = await Appointment.deleteOne({ id: apptId });
+    if (result.deletedCount === 0) return res.status(404).json({ error: 'Bill/Appointment not found' });
+    res.json({ message: 'Bill deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6b. Annual Members
+app.get('/api/annual-members', async (req, res) => {
+  try {
+    const members = await AnnualMember.find().lean();
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/annual-members', async (req, res) => {
+  try {
+    const { name, phone, package: pkg, totalSessions, amount, paymentMethod } = req.body;
+    const existing = await AnnualMember.findOne({ phone });
+    if (existing) return res.status(400).json({ error: 'An annual membership already exists for this phone number' });
+
+    const member = new AnnualMember({
+      name,
+      phone,
+      package: pkg || 'Annual Wellness Package',
+      totalSessions: totalSessions || 12,
+      sessionsCompleted: 0,
+      amount: amount || 0,
+      paymentMethod: paymentMethod || 'Cash'
+    });
+    await member.save();
+
+    await User.findOneAndUpdate({ phone }, { membership: 'Annual' });
+
+    res.status(201).json(member);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/annual-members/:phone/sessions', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const { delta } = req.body;
+    const member = await AnnualMember.findOne({ phone });
+    if (!member) return res.status(404).json({ error: 'Annual member not found' });
+
+    member.sessionsCompleted = Math.max(0, (member.sessionsCompleted || 0) + (Number(delta) || 0));
+    await member.save();
+    res.json(member);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/annual-members/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    await AnnualMember.deleteOne({ phone });
+    res.json({ message: 'Annual member deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
