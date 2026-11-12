@@ -495,6 +495,34 @@ async function apiSaveService(svcData) {
   return svc;
 }
 
+async function apiAddStaff(staffData) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/staff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(staffData)
+    });
+    if (res.ok) {
+      const created = await res.json();
+      const existingIdx = DB.staff.findIndex(s => s.id === created.id);
+      if (existingIdx !== -1) DB.staff[existingIdx] = created;
+      else DB.staff.push(created);
+      saveDB();
+      return created;
+    } else {
+      const err = await res.json();
+      return { error: err.error || 'Failed to add staff member' };
+    }
+  } catch (e) {
+    console.warn('apiAddStaff failed, adding locally', e);
+    const newId = Math.max(1, ...(DB.staff.map(s => s.id || 0))) + 1;
+    const staff = { id: newId, ...staffData, status: true, rating: 5, reviews: 0 };
+    DB.staff.push(staff);
+    saveDB();
+    return staff;
+  }
+}
+
 async function apiToggleStaff(id) {
   try {
     const res = await fetch(`${API_BASE_URL}/staff/${id}/toggle`, { method: 'PUT' });

@@ -560,14 +560,56 @@ function renderAdminCustomers(){
 }
 function filterTable(input,tableId){ document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr=>tr.style.display=tr.textContent.toLowerCase().includes(input.value.toLowerCase())?'':'none'); }
 function renderAdminAppts(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>All Appointments</h3><input class="search-admin" placeholder="Search..." oninput="filterAdminAppts(this.value)" id="appt-search"></div><div class="admin-table-wrap"><table class="admin-table" id="appt-table"><thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Stylist</th><th>Date & Time</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DB.appointments.map(a=>adminApptRow(a)).join('')}</tbody></table></div></div>`; }
-function adminApptRow(a){ const svc=DB.services.find(s=>s.id===a.serviceId); const user=DB.users.find(u=>u.id===a.userId); const staff=DB.staff.find(s=>s.id===a.staffId); return `<tr><td>#${a.id}</td><td>${user?.name||'—'}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${a.date} ${formatTime(a.time)}</td><td>₹${a.amount}</td><td>${statusBadge(a.status)}</td><td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="updateApptStatus(${a.id},'Completed')">✓ Done</button>`:''}${a.status!=='Cancelled'?`<button class="btn btn-danger btn-sm" onclick="updateApptStatus(${a.id},'Cancelled')">✕</button>`:''}<button class="btn btn-outline btn-sm" onclick="generateBill(${a.id})">🧾 Bill</button></div></td></tr>`; }
+function adminApptRow(a){ const svc=DB.services.find(s=>s.id===a.serviceId); const user=DB.users.find(u=>u.id===a.userId); const staff=DB.staff.find(s=>s.id===a.staffId); const custName = (a.customerName && a.customerName.trim() && a.customerName !== 'Receptionist' && a.customerName !== 'Admin' && a.customerName !== 'Walk-in') ? a.customerName.trim() : ((user && user.role === 'customer' && user.name) ? user.name : (a.customerName || '—')); const displayPrice = a.servicePrice !== undefined && a.servicePrice !== null ? a.servicePrice : (a.taxableAmount !== undefined && a.taxableAmount !== null ? (a.taxableAmount + (a.serviceDiscount || 0)) : a.amount); return `<tr><td>#${a.id}</td><td>${custName}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${a.date} ${formatTime(a.time)}</td><td>₹${displayPrice}</td><td>${statusBadge(a.status)}</td><td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="updateApptStatus(${a.id},'Completed')">✓ Done</button>`:''}${a.status!=='Cancelled'?`<button class="btn btn-danger btn-sm" onclick="updateApptStatus(${a.id},'Cancelled')">✕</button>`:''}<button class="btn btn-outline btn-sm" onclick="generateBill(${a.id})">🧾 Bill</button></div></td></tr>`; }
 function filterAdminAppts(q){ document.querySelectorAll('#appt-table tbody tr').forEach(tr=>{ tr.style.display=tr.textContent.toLowerCase().includes(q.toLowerCase())?'':'none'; }); }
 async function updateApptStatus(id,status){ await apiUpdateApptStatus(id,status); renderAdminAppts(); toast(`Appointment ${status}`,'success'); }
 function renderAdminServices(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>Services Management</h3><button class="btn btn-gold btn-sm" onclick="openAddServiceModal()">+ Add Service</button></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Name</th><th>Category</th><th>Gender</th><th>Price</th><th>Discount</th><th>Duration</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DB.services.map(s=>`<tr><td>${s.name}</td><td>${s.category}</td><td><span class="badge ${genderColor(s.gender)}">${s.gender}</span></td><td>₹${s.price}</td><td>${s.discount?s.discount+'%':'—'}</td><td>${s.duration} min</td><td><span class="badge ${s.status?'badge-success':'badge-danger'}">${s.status?'Active':'Disabled'}</span></td><td><div class="admin-action-row"><button class="btn btn-ghost btn-sm" onclick="toggleService(${s.id})">${s.status?'Disable':'Enable'}</button></div></td></tr>`).join('')}</tbody></table></div></div>`; }
 async function toggleService(id){ const s = await apiToggleService(id); renderAdminServices(); toast(`Service ${s.status?'enabled':'disabled'}`); }
 function openAddServiceModal(){ openModal('add-service-modal'); $('save-service').onclick=saveService; }
 async function saveService(){ const name=$('svc-name').value.trim(); if(!name)return toast('Enter service name','error'); const svcData={name,category:$('svc-cat').value,price:parseInt($('svc-price').value)||0,discount:parseInt($('svc-disc').value)||0,duration:parseInt($('svc-dur').value)||30,gender:$('svc-gender').value,description:$('svc-desc').value||name,image:'new',status:true,rating:0,reviews:0,benefits:[],prep:[]}; await apiSaveService(svcData); closeModal('add-service-modal');renderAdminServices();toast('Service added!','success'); }
-function renderAdminStaff(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>Staff Management</h3><button class="btn btn-gold btn-sm">+ Add Staff</button></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Name</th><th>Specialization</th><th>Experience</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DB.staff.map(s=>`<tr><td><div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dark),var(--bg4));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">${s.name[0]}</div>${s.name}</div></td><td>${s.specialization}</td><td>${s.experience} yrs</td><td>⭐ ${s.rating}</td><td><span class="badge ${s.status?'badge-success':'badge-danger'}">${s.status?'Active':'Off'}</span></td><td><div class="admin-action-row"><button class="btn btn-ghost btn-sm" onclick="toggleStaff(${s.id})">${s.status?'Disable':'Enable'}</button></div></td></tr>`).join('')}</tbody></table></div></div>`; }
+function renderAdminStaff(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>Staff Management</h3><button class="btn btn-gold btn-sm" onclick="openAddStaffModal()">+ Add Staff</button></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Name</th><th>Specialization</th><th>Experience</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DB.staff.map(s=>`<tr><td><div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dark),var(--bg4));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">${s.name[0]}</div>${s.name}</div></td><td>${s.specialization}</td><td>${s.experience} yrs</td><td>⭐ ${s.rating}</td><td><span class="badge ${s.status?'badge-success':'badge-danger'}">${s.status?'Active':'Off'}</span></td><td><div class="admin-action-row"><button class="btn btn-ghost btn-sm" onclick="toggleStaff(${s.id})">${s.status?'Disable':'Enable'}</button></div></td></tr>`).join('')}</tbody></table></div></div>`; }
+function openAddStaffModal(){
+  const nameEl = $('as-name'); if(nameEl) nameEl.value = '';
+  const specEl = $('as-spec'); if(specEl) specEl.value = '';
+  const expEl = $('as-exp'); if(expEl) expEl.value = '3';
+  const startEl = $('as-start'); if(startEl) startEl.value = '09:00';
+  const endEl = $('as-end'); if(endEl) endEl.value = '19:00';
+  const aboutEl = $('as-about'); if(aboutEl) aboutEl.value = '';
+  openModal('add-staff-modal');
+}
+async function submitAddStaff(){
+  const name = $('as-name')?.value.trim();
+  const spec = $('as-spec')?.value.trim();
+  const exp = parseInt($('as-exp')?.value) || 0;
+  const start = $('as-start')?.value || '09:00';
+  const end = $('as-end')?.value || '19:00';
+  const about = $('as-about')?.value.trim() || '';
+
+  if(!name){ toast('Please enter staff name', 'error'); return; }
+  if(!spec){ toast('Please enter staff specialization', 'error'); return; }
+
+  const btn = $('btn-save-staff');
+  if(btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  const res = await apiAddStaff({
+    name,
+    specialization: spec,
+    experience: exp,
+    workingHours: { start, end },
+    about
+  });
+
+  if(btn) { btn.disabled = false; btn.textContent = 'Save Staff Member'; }
+
+  if(res && res.error){
+    toast(res.error, 'error');
+    return;
+  }
+
+  closeModal('add-staff-modal');
+  toast(`Staff member ${name} added successfully!`, 'success');
+  renderAdminStaff();
+}
 async function toggleStaff(id){ await apiToggleStaff(id); renderAdminStaff(); }
 function renderAdminPayments(){
   const payments = DB.appointments.filter(a => a.transactionId || a.billNumber || a.amount);
@@ -1053,7 +1095,11 @@ function renderReceptBookings(){
         const user = DB.users.find(u => u.id === a.userId);
         const staff = DB.staff.find(s => s.id === a.staffId);
         const isAnnual = a.isAnnualMember || (user?.membership === 'Annual');
-        return '<tr><td>#' + a.id + ' ' + (isAnnual?'<span class="badge badge-gold" style="font-size:10px">👑</span>':'') + '</td><td>' + (user?.name||a.customerName||'Walk-in') + '</td><td>' + (svc?.name||'—') + '</td><td>' + (a.stylistName||staff?.name||'—') + '</td><td>' + a.date + ' ' + formatTime(a.time) + '</td><td>₹' + a.amount + '</td><td>' + statusBadge(a.status) + '</td><td><div class="admin-action-row">' + (a.status==='Confirmed'?'<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;In Progress&apos;)">Check In</button>':'') + (a.status==='In Progress'?'<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;Completed&apos;)">Done</button>':'') + (a.status!=='Cancelled'&&a.status!=='Completed'?'<button class="btn btn-danger btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;Cancelled&apos;)">✕</button>':'') + (['Completed','In Progress','Confirmed'].includes(a.status)?'<button class="btn btn-outline btn-sm" onclick="generateBill(' + a.id + ')">🧾 Bill</button>':'') + '</div></td></tr>';
+        const custName = (a.customerName && a.customerName.trim() && a.customerName !== 'Receptionist' && a.customerName !== 'Admin' && a.customerName !== 'Walk-in')
+          ? a.customerName.trim()
+          : ((user && user.role === 'customer' && user.name) ? user.name : (a.customerName || 'Walk-in'));
+        const displayPrice = a.servicePrice !== undefined && a.servicePrice !== null ? a.servicePrice : (a.taxableAmount !== undefined && a.taxableAmount !== null ? (a.taxableAmount + (a.serviceDiscount || 0)) : a.amount);
+        return '<tr><td>#' + a.id + ' ' + (isAnnual?'<span class="badge badge-gold" style="font-size:10px">👑</span>':'') + '</td><td>' + custName + '</td><td>' + (svc?.name||'—') + '</td><td>' + (a.stylistName||staff?.name||'—') + '</td><td>' + a.date + ' ' + formatTime(a.time) + '</td><td>₹' + displayPrice + '</td><td>' + statusBadge(a.status) + '</td><td><div class="admin-action-row">' + (a.status==='Confirmed'?'<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;In Progress&apos;)">Check In</button>':'') + (a.status==='In Progress'?'<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;Completed&apos;)">Done</button>':'') + (a.status!=='Cancelled'&&a.status!=='Completed'?'<button class="btn btn-danger btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;Cancelled&apos;)">✕</button>':'') + (['Completed','In Progress','Confirmed'].includes(a.status)?'<button class="btn btn-outline btn-sm" onclick="generateBill(' + a.id + ')">🧾 Bill</button>':'') + '</div></td></tr>';
       }).join('')}</tbody></table></div>` : '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No bookings found</div><div class="empty-sub">No appointments match the selected filter.</div></div>'}
     </div>`;
 
@@ -1079,7 +1125,11 @@ function renderReceptCheckInOut(){
         const user=DB.users.find(u=>u.id===a.userId);
         const staff=DB.staff.find(s=>s.id===a.staffId);
         const statusClass = a.status==='Confirmed'?'status-waiting':a.status==='In Progress'?'status-checkin':'status-checkout';
-        return `<tr><td>${user?.name||'Walk-in'}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${formatTime(a.time)}</td><td>₹${a.amount}</td>
+        const custName = (a.customerName && a.customerName.trim() && a.customerName !== 'Receptionist' && a.customerName !== 'Admin' && a.customerName !== 'Walk-in')
+          ? a.customerName.trim()
+          : ((user && user.role === 'customer' && user.name) ? user.name : (a.customerName || 'Walk-in'));
+        const displayPrice = a.servicePrice !== undefined && a.servicePrice !== null ? a.servicePrice : (a.taxableAmount !== undefined && a.taxableAmount !== null ? (a.taxableAmount + (a.serviceDiscount || 0)) : a.amount);
+        return `<tr><td>${custName}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${formatTime(a.time)}</td><td>₹${displayPrice}</td>
         <td><span class="${statusClass}">${a.status==='Confirmed'?'Waiting':a.status==='In Progress'?'Checked In':'Done'}</span></td>
         <td><div class="admin-action-row">
           ${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(${a.id},'In Progress')">✓ Check In</button>`:''}
@@ -1359,9 +1409,13 @@ function generateBill(apptId){
       treatmentLabel: a.taxTreatment || 'Intra-State (CGST 2.5% + SGST 2.5%)'
     };
   } else {
-    // New bill calculation
-    const catalogPrice = svc ? getDiscountedPrice(svc) : (a.amount || 0);
-    servicePrice = a.amount && a.amount > 0 ? a.amount : catalogPrice;
+    // New bill calculation — strictly preserve original service price
+    const catalogPrice = svc ? getDiscountedPrice(svc) : 0;
+    servicePrice = (a.servicePrice !== undefined && a.servicePrice > 0)
+      ? a.servicePrice
+      : (a.taxableAmount !== undefined && a.taxableAmount > 0
+          ? (a.taxableAmount + (a.serviceDiscount || 0))
+          : (a.amount && a.amount > 0 ? a.amount : catalogPrice));
     serviceDiscount = a.serviceDiscount || a.couponDiscount || 0;
     taxableAmount = Math.max(0, servicePrice - serviceDiscount);
     treatment = 'intra';
@@ -1450,7 +1504,10 @@ function generateBill(apptId){
   // Populate modal fields
   $('bill-id').textContent        = billNumStr;
   $('bill-datetime').textContent  = billDT;
-  $('bill-cust-name').textContent = user?.name  || a.customerName || 'Walk-in Customer';
+  const finalCustName = (a.customerName && a.customerName.trim() && a.customerName !== 'Receptionist' && a.customerName !== 'Admin' && a.customerName !== 'Walk-in')
+    ? a.customerName.trim()
+    : ((user && user.role === 'customer' && user.name) ? user.name : (a.customerName || 'Walk-in Customer'));
+  $('bill-cust-name').textContent = finalCustName;
   $('bill-cust-phone').textContent= phone || 'N/A';
   $('bill-service').textContent   = svc?.name   || '—';
   $('bill-stylist').textContent   = a.stylistName || staff?.name || 'Any Available';
@@ -2001,14 +2058,17 @@ function confirmWalkIn(){
   if(!name){ toast('Enter customer name','error'); resetBusy(); return; }
   if(!date||!time){ toast('Select date and time','error'); resetBusy(); return; }
 
-  // Find or create customer by phone
-  let user = phone ? DB.users.find(u => u.phone === phone) : null;
+  // Find or create customer (strictly role='customer', never receptionist/admin)
+  let user = phone ? DB.users.find(u => u.phone === phone && u.role === 'customer') : null;
   if(!user){
-    const newId = DB.nextId.user++;
-    user = { id:newId, name, phone:phone||'N/A', email:`walkin${newId}@swarna.local`, password:'', role:'customer', profileImage:'', membership:isAnnual?'Annual':null, createdAt:new Date().toISOString().split('T')[0] };
+    const nextUid = Math.max(100, ...(DB.users.map(u => u.id || 0))) + 1;
+    user = { id:nextUid, name, phone:phone||'N/A', email:`customer${nextUid}@swarna.local`, password:'', role:'customer', profileImage:'', membership:isAnnual?'Annual':null, createdAt:new Date().toISOString().split('T')[0] };
     DB.users.push(user);
-  } else if(isAnnual && !user.membership) {
-    user.membership = 'Annual';
+  } else {
+    user.name = name; // Update with latest entered customer name
+    if(isAnnual && !user.membership) {
+      user.membership = 'Annual';
+    }
   }
 
   const svc = DB.services.find(s => s.id === svcId);
@@ -2059,14 +2119,16 @@ function confirmWalkIn(){
     date,
     time,
     duration: svc?.duration || 60,
-    amount: tax.finalTotal,
-    serviceDiscount: serviceDiscount,
-    taxableAmount: taxableAmount,
-    gstRate: tax.gstRate,
-    gstAmount: tax.gstAmount,
-    cgst: tax.cgst,
-    sgst: tax.sgst,
-    igst: tax.igst,
+    amount: price,                       // Preserves original service price in Amount column (e.g. ₹890)
+    servicePrice: price,                 // Preserves original entered service price (e.g. ₹890)
+    finalAmount: tax.finalTotal,         // Preserves final payable amount with tax (e.g. ₹934.50)
+    serviceDiscount: serviceDiscount,   // e.g. ₹0
+    taxableAmount: taxableAmount,       // e.g. ₹890
+    gstRate: tax.gstRate,               // 5%
+    gstAmount: tax.gstAmount,           // e.g. ₹44.50
+    cgst: tax.cgst,                     // e.g. ₹22.25
+    sgst: tax.sgst,                     // e.g. ₹22.25
+    igst: tax.igst,                     // 0
     taxTreatment: tax.treatmentLabel,
     gstRegistered: isReg,
     gstDiscount: 0,
@@ -2081,7 +2143,7 @@ function confirmWalkIn(){
     sessionCounted: isAnnual,
     status: 'Confirmed',
     createdAt: new Date().toISOString().split('T')[0],
-    customerName: name,
+    customerName: name,                 // Preserves exact customer name entered (e.g. "LAVA")
     customerPhone: phone || 'N/A'
   };
 

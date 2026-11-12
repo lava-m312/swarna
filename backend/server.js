@@ -293,10 +293,32 @@ app.get('/api/staff', async (req, res) => {
 
 app.post('/api/staff', async (req, res) => {
   try {
+    const { name, specialization, experience, workingHours, about, services, daysOff } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Staff name is required.' });
+    }
+    if (!specialization || !specialization.trim()) {
+      return res.status(400).json({ error: 'Specialization is required.' });
+    }
+
+    const existing = await Staff.findOne({ name: new RegExp(`^${name.trim()}$`, 'i') });
+    if (existing) {
+      return res.status(400).json({ error: `A staff member named "${name.trim()}" already exists.` });
+    }
+
     const newId = await getNextId(Staff);
     const member = new Staff({
       id: newId,
-      ...req.body
+      name: name.trim(),
+      specialization: specialization.trim(),
+      experience: Number(experience) || 0,
+      rating: 5,
+      reviews: 1,
+      services: Array.isArray(services) && services.length ? services : [1, 2, 3, 5, 8],
+      status: true,
+      workingHours: workingHours || { start: '09:00', end: '19:00' },
+      daysOff: Array.isArray(daysOff) ? daysOff : [0],
+      about: about || ''
     });
     await member.save();
     res.status(201).json(member);
@@ -363,8 +385,9 @@ app.post('/api/appointments', async (req, res) => {
     const {
       staffId, date, time, userId, serviceId, amount, duration,
       couponDiscount, paymentMethod, transactionId,
-      // Task 4 — walk-in & GST fields
+      // Walk-in & GST fields
       customerName, customerPhone, stylistName,
+      servicePrice, finalAmount,
       gstRate, gstAmount, cgst, sgst, igst, taxTreatment, gstRegistered,
       gstDiscount, serviceDiscount, taxableAmount,
       billNumber, isAnnualMember, annualSessionNumber, sessionCounted
@@ -381,24 +404,56 @@ app.post('/api/appointments', async (req, res) => {
       return res.status(400).json({ error: 'This slot is already booked. Please choose another time.' });
     }
 
+    // Ensure customer account exists in MongoDB for proper directory association
+    let assignedUserId = Number(userId) || 1001;
+    const cleanCustName = (customerName || '').trim();
+    const cleanCustPhone = (customerPhone || '').trim();
+
+    if (cleanCustName && cleanCustName !== 'Receptionist' && cleanCustName !== 'Admin' && cleanCustName !== 'Walk-in') {
+      let customerUser = await User.findOne({
+        $or: [
+          ...(cleanCustPhone && cleanCustPhone !== 'N/A' ? [{ phone: cleanCustPhone }] : []),
+          { name: new RegExp(`^${cleanCustName}$`, 'i'), role: 'customer' }
+        ]
+      });
+      if (!customerUser) {
+        const nextUid = await getNextId(User);
+        customerUser = new User({
+          id: nextUid,
+          name: cleanCustName,
+          phone: cleanCustPhone && cleanCustPhone !== 'N/A' ? cleanCustPhone : 'N/A',
+          email: `customer${nextUid}@swarna.local`,
+          password: '',
+          role: 'customer'
+        });
+        await customerUser.save().catch(() => {});
+      }
+      if (customerUser) assignedUserId = customerUser.id;
+    }
+
     const nextApptId = Math.max(1001, (await getNextId(Appointment)));
+    const originalPrice = servicePrice !== undefined ? Number(servicePrice) : Number(amount || 0);
+    const payableAmount = finalAmount !== undefined ? Number(finalAmount) : Number(amount || originalPrice);
+
     const newAppt = new Appointment({
       id: nextApptId,
-      userId: Number(userId),
+      userId: assignedUserId,
       serviceId: Number(serviceId),
       staffId: Number(staffId),
       date,
       time,
       duration: duration || 30,
-      amount,
+      amount: originalPrice, // Amount column preserves the original service price
+      servicePrice: originalPrice, // Original entered service price
+      finalAmount: payableAmount,  // Final payable total with tax
       couponDiscount: couponDiscount || 0,
       paymentMethod: paymentMethod || 'UPI',
       transactionId: transactionId || '',
       status: 'Confirmed',
       paymentStatus: 'Paid',
-      // walk-in & GST fields (56th GST Council: 5% for qualifying salon services Group 99972)
-      customerName: customerName || '',
-      customerPhone: customerPhone || '',
+      // Walk-in & GST fields (56th GST Council compliant: 5% for Group 99972)
+      customerName: cleanCustName,
+      customerPhone: cleanCustPhone || 'N/A',
       stylistName: stylistName || '',
       gstRate: gstRate !== undefined ? Number(gstRate) : 5,
       gstAmount: gstAmount !== undefined ? Number(gstAmount) : 0,
@@ -422,7 +477,7 @@ app.post('/api/appointments', async (req, res) => {
     const notifId = Date.now();
     const notif = new Notification({
       id: notifId,
-      userId: Number(userId),
+      userId: assignedUserId,
       title: 'Appointment Confirmed!',
       message: `Your appointment is confirmed for ${date} at ${time}.`,
       type: 'booking'
@@ -441,6 +496,7 @@ app.patch('/api/appointments/:id/status', async (req, res) => {
     const rawId = req.params.id;
     const {
       status, paymentStatus,
+      servicePrice, finalAmount,
       gstRate, gstAmount, cgst, sgst, igst, taxTreatment, gstRegistered,
       gstDiscount, serviceDiscount, taxableAmount,
       billNumber, sessionCounted, annualSessionNumber
@@ -475,6 +531,11 @@ app.patch('/api/appointments/:id/status', async (req, res) => {
     const update = {};
     if (status !== undefined) update.status = status;
     if (paymentStatus !== undefined) update.paymentStatus = paymentStatus;
+    if (servicePrice !== undefined) {
+      update.servicePrice = Number(servicePrice);
+      update.amount = Number(servicePrice);
+    }
+    if (finalAmount !== undefined) update.finalAmount = Number(finalAmount);
     if (gstRate !== undefined) update.gstRate = Number(gstRate);
     if (gstAmount !== undefined) update.gstAmount = Number(gstAmount);
     if (cgst !== undefined) update.cgst = Number(cgst);

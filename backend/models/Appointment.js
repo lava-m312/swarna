@@ -21,6 +21,8 @@ const appointmentSchema = new mongoose.Schema({
   sessionCounted: { type: Boolean, default: false },
   createdAt: { type: String, default: () => new Date().toISOString().split('T')[0] },
   // GST & billing fields (56th GST Council compliant: 5% for Group 99972)
+  servicePrice: { type: Number, default: 0 }, // Original entered service price (e.g. ₹890)
+  finalAmount: { type: Number, default: 0 },  // Final payable amount with tax (e.g. ₹934.50)
   gstRate: { type: Number, default: 5 },
   gstAmount: { type: Number, default: 0 },
   cgst: { type: Number, default: 0 },
