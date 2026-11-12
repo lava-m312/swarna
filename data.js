@@ -88,6 +88,29 @@ function ensureMassageServices(){
   });
 }
 
+function syncNextAppointmentId() {
+  if (!DB.nextId) DB.nextId = { user: 3, appointment: 1001, review: 1, coupon: 1, expense: 1, attendance: 1 };
+  const maxExisting = (DB.appointments || []).reduce((max, a) => Math.max(max, Number(a.id) || 0), 1000);
+  DB.nextId.appointment = Math.max(Number(DB.nextId.appointment) || 1001, maxExisting + 1);
+}
+
+function fixDuplicateAppointmentIds() {
+  if (!Array.isArray(DB.appointments) || DB.appointments.length === 0) return;
+  const seen = new Map();
+  let maxId = DB.appointments.reduce((max, a) => Math.max(max, Number(a.id) || 0), 1000);
+  for (const a of DB.appointments) {
+    const numId = Number(a.id);
+    if (!seen.has(numId)) {
+      seen.set(numId, a);
+    } else {
+      // Duplicate numeric id found! Give the second one a unique number so they don't collide
+      maxId++;
+      console.warn(`[Deduplicate] Reassigning duplicate appointment id ${a.id} -> ${maxId} (${a.customerName || 'Walk-in'})`);
+      a.id = maxId;
+    }
+  }
+}
+
 function saveDB() {
   localStorage.setItem('swarnaDB', JSON.stringify(DB));
 }
@@ -111,6 +134,8 @@ async function loadDB() {
       if (data.businessConfig) DB.businessConfig = data.businessConfig;
       if (data.billCounter) DB.billCounter = data.billCounter;
       ensureMassageServices();
+      fixDuplicateAppointmentIds();
+      syncNextAppointmentId();
       saveDB();
       return true;
     }
@@ -135,6 +160,8 @@ async function loadDB() {
     Object.assign(DB, parsed);
   }
   ensureMassageServices();
+  fixDuplicateAppointmentIds();
+  syncNextAppointmentId();
   return false;
 }
 loadDB();
@@ -386,10 +413,14 @@ async function apiUpdateApptFull(id, updateObj) {
     });
     if (res.ok) {
       const updated = await res.json();
-      // Update in local DB by both _id and numeric id
-      const idx = DB.appointments.findIndex(a => (a._id && a._id === updated._id) || a.id === updated.id);
+      // Update in local DB by _id if matching, or by matching id + date + time
+      const idx = DB.appointments.findIndex(a => (a._id && a._id === updated._id) || (a.id === updated.id && a.date === updated.date && a.time === updated.time));
       if (idx !== -1) DB.appointments[idx] = updated;
-      else DB.appointments.push(updated); // new record from server
+      else {
+        const idIdx = DB.appointments.findIndex(a => a.id === updated.id);
+        if (idIdx !== -1) DB.appointments[idIdx] = updated;
+        else DB.appointments.push(updated);
+      }
       saveDB();
       return updated;
     } else {
@@ -398,8 +429,8 @@ async function apiUpdateApptFull(id, updateObj) {
     }
   } catch (e) {
     console.warn('apiUpdateApptFull failed, updating locally', e);
-    // Local fallback: find by numeric id
-    const a = DB.appointments.find(x => x.id === Number(id) || x._id === id);
+    // Local fallback: find by _id or numeric id
+    const a = DB.appointments.find(x => (x._id && x._id === id) || x.id === Number(id));
     if (a) { Object.assign(a, updateObj); saveDB(); }
     return a || { error: 'Appointment not found locally' };
   }
@@ -420,6 +451,8 @@ async function apiLoadRecentAppointments(days = 90) {
         ...DB.appointments.filter(a => !fetchedIds.has(a._id || String(a.id))),
         ...data
       ];
+      fixDuplicateAppointmentIds();
+      syncNextAppointmentId();
       saveDB();
       return data;
     }
@@ -440,9 +473,11 @@ async function apiCreateWalkinAppointment(apptData) {
       const resp = await res.json();
       const serverAppt = resp.appointment || resp;
       // Replace the locally-pushed copy with the server copy (which has _id)
-      const localIdx = DB.appointments.findIndex(a => a.id === apptData.id);
+      const localIdx = DB.appointments.findIndex(a => a === apptData || (apptData._id && a._id === apptData._id) || (a.id === apptData.id && a.date === apptData.date && a.time === apptData.time));
       if (localIdx !== -1) DB.appointments[localIdx] = serverAppt;
       else DB.appointments.push(serverAppt);
+      fixDuplicateAppointmentIds();
+      syncNextAppointmentId();
       saveDB();
       return serverAppt;
     } else {

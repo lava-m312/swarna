@@ -560,7 +560,7 @@ function renderAdminCustomers(){
 }
 function filterTable(input,tableId){ document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr=>tr.style.display=tr.textContent.toLowerCase().includes(input.value.toLowerCase())?'':'none'); }
 function renderAdminAppts(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>All Appointments</h3><input class="search-admin" placeholder="Search..." oninput="filterAdminAppts(this.value)" id="appt-search"></div><div class="admin-table-wrap"><table class="admin-table" id="appt-table"><thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Stylist</th><th>Date & Time</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DB.appointments.map(a=>adminApptRow(a)).join('')}</tbody></table></div></div>`; }
-function adminApptRow(a){ const svc=DB.services.find(s=>s.id===a.serviceId); const user=DB.users.find(u=>u.id===a.userId); const staff=DB.staff.find(s=>s.id===a.staffId); const custName = (a.customerName && a.customerName.trim() && a.customerName !== 'Receptionist' && a.customerName !== 'Admin' && a.customerName !== 'Walk-in') ? a.customerName.trim() : ((user && user.role === 'customer' && user.name) ? user.name : (a.customerName || '—')); const displayPrice = a.servicePrice !== undefined && a.servicePrice !== null ? a.servicePrice : (a.taxableAmount !== undefined && a.taxableAmount !== null ? (a.taxableAmount + (a.serviceDiscount || 0)) : a.amount); return `<tr><td>#${a.id}</td><td>${custName}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${a.date} ${formatTime(a.time)}</td><td>₹${displayPrice}</td><td>${statusBadge(a.status)}</td><td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="updateApptStatus(${a.id},'Completed')">✓ Done</button>`:''}${a.status!=='Cancelled'?`<button class="btn btn-danger btn-sm" onclick="updateApptStatus(${a.id},'Cancelled')">✕</button>`:''}<button class="btn btn-outline btn-sm" onclick="generateBill(${a.id})">🧾 Bill</button></div></td></tr>`; }
+function adminApptRow(a){ const svc=DB.services.find(s=>s.id===a.serviceId); const user=DB.users.find(u=>u.id===a.userId); const staff=DB.staff.find(s=>s.id===a.staffId); const custName = (a.customerName && a.customerName.trim() && a.customerName !== 'Receptionist' && a.customerName !== 'Admin' && a.customerName !== 'Walk-in') ? a.customerName.trim() : ((user && user.role === 'customer' && user.name) ? user.name : (a.customerName || '—')); const displayPrice = a.servicePrice !== undefined && a.servicePrice !== null ? a.servicePrice : (a.taxableAmount !== undefined && a.taxableAmount !== null ? (a.taxableAmount + (a.serviceDiscount || 0)) : a.amount); return `<tr><td>#${a.id}</td><td>${custName}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${a.date} ${formatTime(a.time)}</td><td>₹${displayPrice}</td><td>${statusBadge(a.status)}</td><td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="updateApptStatus('${a._id || a.id}','Completed')">✓ Done</button>`:''}${a.status!=='Cancelled'?`<button class="btn btn-danger btn-sm" onclick="updateApptStatus('${a._id || a.id}','Cancelled')">✕</button>`:''}<button class="btn btn-outline btn-sm" onclick="generateBill('${a._id || a.id}')">🧾 Bill</button></div></td></tr>`; }
 function filterAdminAppts(q){ document.querySelectorAll('#appt-table tbody tr').forEach(tr=>{ tr.style.display=tr.textContent.toLowerCase().includes(q.toLowerCase())?'':'none'; }); }
 async function updateApptStatus(id,status){ await apiUpdateApptStatus(id,status); renderAdminAppts(); toast(`Appointment ${status}`,'success'); }
 function renderAdminServices(){ $('admin-content').innerHTML=`<div class="admin-section"><div class="admin-table-title"><h3>Services Management</h3><button class="btn btn-gold btn-sm" onclick="openAddServiceModal()">+ Add Service</button></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Name</th><th>Category</th><th>Gender</th><th>Price</th><th>Discount</th><th>Duration</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DB.services.map(s=>`<tr><td>${s.name}</td><td>${s.category}</td><td><span class="badge ${genderColor(s.gender)}">${s.gender}</span></td><td>₹${s.price}</td><td>${s.discount?s.discount+'%':'—'}</td><td>${s.duration} min</td><td><span class="badge ${s.status?'badge-success':'badge-danger'}">${s.status?'Active':'Disabled'}</span></td><td><div class="admin-action-row"><button class="btn btn-ghost btn-sm" onclick="toggleService(${s.id})">${s.status?'Disable':'Enable'}</button></div></td></tr>`).join('')}</tbody></table></div></div>`; }
@@ -638,17 +638,18 @@ function renderAdminPayments(){
         <td>${a.paymentMethod||'—'}</td>
         <td><span class="badge ${a.paymentStatus==='Paid'?'badge-success':'badge-warning'}">${a.paymentStatus||'Paid'}</span></td>
         <td>${a.createdAt||a.date}</td>
-        <td><div class="admin-action-row"><button class="btn btn-outline btn-sm" onclick="generateBill(${a.id})" title="View Bill">🧾</button><button class="btn btn-danger btn-sm" onclick="deleteBill(${a.id})" title="Delete Bill">🗑️ Delete</button></div></td>
+        <td><div class="admin-action-row"><button class="btn btn-outline btn-sm" onclick="generateBill('${a._id || a.id}')" title="View Bill">🧾</button><button class="btn btn-danger btn-sm" onclick="deleteBill('${a._id || a.id}')" title="Delete Bill">🗑️ Delete</button></div></td>
       </tr>`;
     }).join('')}</tbody></table></div></div>`;
 }
 function deleteBill(apptId){
   if(!confirm('Are you sure you want to delete this bill record? This will permanently remove the bill and transaction.')) return;
-  const idx = DB.appointments.findIndex(a => a.id === apptId);
+  const idx = DB.appointments.findIndex(a => (a._id && String(a._id) === String(apptId)) || String(a.id) === String(apptId));
   if(idx !== -1){
+    const target = DB.appointments[idx];
     DB.appointments.splice(idx, 1);
     saveDB();
-    apiDeleteBill(apptId);
+    apiDeleteBill(target._id || target.id);
     toast('Bill deleted successfully', 'success');
     renderAdminPayments();
   }
@@ -1047,7 +1048,7 @@ function renderReceptOverview(){
         const user=DB.users.find(u=>u.id===a.userId);
         const staff=DB.staff.find(s=>s.id===a.staffId);
         return `<tr><td>#${a.id}</td><td>${user?.name||'Walk-in'}</td><td>${svc?.name||'—'}</td><td>${staff?.name||'—'}</td><td>${formatTime(a.time)}</td><td>${statusBadge(a.status)}</td>
-        <td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(${a.id},'In Progress')">✓ Check In</button>`:''}${a.status==='In Progress'?`<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus(${a.id},'Completed')">✓ Done</button>`:''}</div></td></tr>`;
+        <td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus('${a._id || a.id}','In Progress')">✓ Check In</button>`:''}${a.status==='In Progress'?`<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus('${a._id || a.id}','Completed')">✓ Done</button>`:''}</div></td></tr>`;
       }).join('')}</tbody></table></div>` : `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No appointments today</div><div class="empty-sub">Walk-in clients can be added using the button above</div></div>`}
     </div>`;
 }
@@ -1098,8 +1099,9 @@ function renderReceptBookings(){
         const custName = (a.customerName && a.customerName.trim() && a.customerName !== 'Receptionist' && a.customerName !== 'Admin' && a.customerName !== 'Walk-in')
           ? a.customerName.trim()
           : ((user && user.role === 'customer' && user.name) ? user.name : (a.customerName || 'Walk-in'));
+        const targetRef = a._id ? String(a._id) : String(a.id);
         const displayPrice = a.servicePrice !== undefined && a.servicePrice !== null ? a.servicePrice : (a.taxableAmount !== undefined && a.taxableAmount !== null ? (a.taxableAmount + (a.serviceDiscount || 0)) : a.amount);
-        return '<tr><td>#' + a.id + ' ' + (isAnnual?'<span class="badge badge-gold" style="font-size:10px">👑</span>':'') + '</td><td>' + custName + '</td><td>' + (svc?.name||'—') + '</td><td>' + (a.stylistName||staff?.name||'—') + '</td><td>' + a.date + ' ' + formatTime(a.time) + '</td><td>₹' + displayPrice + '</td><td>' + statusBadge(a.status) + '</td><td><div class="admin-action-row">' + (a.status==='Confirmed'?'<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;In Progress&apos;)">Check In</button>':'') + (a.status==='In Progress'?'<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;Completed&apos;)">Done</button>':'') + (a.status!=='Cancelled'&&a.status!=='Completed'?'<button class="btn btn-danger btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;Cancelled&apos;)">✕</button>':'') + (['Completed','In Progress','Confirmed'].includes(a.status)?'<button class="btn btn-outline btn-sm" onclick="generateBill(' + a.id + ')">🧾 Bill</button>':'') + '</div></td></tr>';
+        return '<tr><td>#' + a.id + ' ' + (isAnnual?'<span class="badge badge-gold" style="font-size:10px">👑</span>':'') + '</td><td>' + custName + '</td><td>' + (svc?.name||'—') + '</td><td>' + (a.stylistName||staff?.name||'—') + '</td><td>' + a.date + ' ' + formatTime(a.time) + '</td><td>₹' + displayPrice + '</td><td>' + statusBadge(a.status) + '</td><td><div class="admin-action-row">' + (a.status==='Confirmed'?'<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(&apos;' + targetRef + '&apos;,&apos;In Progress&apos;)">Check In</button>':'') + (a.status==='In Progress'?'<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus(&apos;' + targetRef + '&apos;,&apos;Completed&apos;)">Done</button>':'') + (a.status!=='Cancelled'&&a.status!=='Completed'?'<button class="btn btn-danger btn-sm" onclick="receptionistUpdateStatus(&apos;' + targetRef + '&apos;,&apos;Cancelled&apos;)">✕</button>':'') + (['Completed','In Progress','Confirmed'].includes(a.status)?'<button class="btn btn-outline btn-sm" onclick="generateBill(&apos;' + targetRef + '&apos;)">🧾 Bill</button>':'') + '</div></td></tr>';
       }).join('')}</tbody></table></div>` : '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No bookings found</div><div class="empty-sub">No appointments match the selected filter.</div></div>'}
     </div>`;
 
@@ -1132,10 +1134,10 @@ function renderReceptCheckInOut(){
         return `<tr><td>${custName}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${formatTime(a.time)}</td><td>₹${displayPrice}</td>
         <td><span class="${statusClass}">${a.status==='Confirmed'?'Waiting':a.status==='In Progress'?'Checked In':'Done'}</span></td>
         <td><div class="admin-action-row">
-          ${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(${a.id},'In Progress')">✓ Check In</button>`:''}
-          ${a.status==='In Progress'?`<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus(${a.id},'Completed')">✓ Check Out</button>`:''}
+          ${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus('${a._id || a.id}','In Progress')">✓ Check In</button>`:''}
+          ${a.status==='In Progress'?`<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus('${a._id || a.id}','Completed')">✓ Check Out</button>`:''}
           ${a.status==='Completed'?`<span style="color:var(--success);font-size:12px">✅ Done</span>`:''}
-          <button class="btn btn-outline btn-sm" onclick="generateBill(${a.id})">🧾 Bill</button>
+          <button class="btn btn-outline btn-sm" onclick="generateBill('${a._id || a.id}')">🧾 Bill</button>
         </div></td></tr>`;
       }).join('')}</tbody></table></div>`
       : `<div class="empty-state"><div class="empty-icon">⚡</div><div class="empty-title">No appointments today</div><div class="empty-sub">All clear! Add walk-in bookings from the Bookings section.</div></div>`}
@@ -1319,13 +1321,27 @@ function renderReceptProfile(){
     </div>`;
 }
 
-function receptionistUpdateStatus(id, status){
-  if(receptionistUpdateStatus._inFlight && receptionistUpdateStatus._inFlight[id]) return;
+function receptionistUpdateStatus(targetId, status){
+  if(receptionistUpdateStatus._inFlight && receptionistUpdateStatus._inFlight[targetId]) return;
   if(!receptionistUpdateStatus._inFlight) receptionistUpdateStatus._inFlight = {};
-  receptionistUpdateStatus._inFlight[id] = true;
-  const done = () => { delete receptionistUpdateStatus._inFlight[id]; };
+  receptionistUpdateStatus._inFlight[targetId] = true;
+  const done = () => { delete receptionistUpdateStatus._inFlight[targetId]; };
 
-  const a = DB.appointments.find(x => x.id === id);
+  let a = DB.appointments.find(x => x._id && String(x._id) === String(targetId));
+  if(!a){
+    if(status === 'In Progress'){
+      a = DB.appointments.find(x => String(x.id) === String(targetId) && x.status === 'Confirmed')
+       || DB.appointments.find(x => String(x.id) === String(targetId) && x.status !== 'Completed');
+    } else if(status === 'Completed'){
+      a = DB.appointments.find(x => String(x.id) === String(targetId) && x.status === 'In Progress')
+       || DB.appointments.find(x => String(x.id) === String(targetId) && x.status !== 'Completed');
+    } else if(status === 'Cancelled'){
+      a = DB.appointments.find(x => String(x.id) === String(targetId) && x.status !== 'Completed' && x.status !== 'Cancelled');
+    }
+  }
+  if(!a){
+    a = DB.appointments.find(x => String(x.id) === String(targetId));
+  }
   if(!a){ toast('Appointment not found','error'); done(); return; }
   if(a.status === status){ renderReceptionistSection(); done(); return; }
   if(a.status === 'Completed' && status !== 'Completed'){
@@ -1336,20 +1352,40 @@ function receptionistUpdateStatus(id, status){
   saveDB();
   renderReceptionistSection();
   toast(`Status updated to ${status}`, 'success');
-  // Persist to backend asynchronously
-  apiUpdateApptFull(id, { status }).then(result => {
-    done();
-    if(result && result.error){
-      toast(result.error, 'error');
-      // Reload fresh data on backend error
-      apiLoadRecentAppointments(90).then(() => renderReceptionistSection()).catch(()=>{});
-    }
-  }).catch(() => { done(); });
+
+  const persistId = a._id || a.id;
+  if(!a._id && typeof apiCreateWalkinAppointment === 'function'){
+    // If not yet persisted to MongoDB (no _id), sync full appointment first
+    apiCreateWalkinAppointment(a).then(serverAppt => {
+      done();
+      if(serverAppt && serverAppt._id){
+        a._id = serverAppt._id;
+        a.id = serverAppt.id || a.id;
+        saveDB();
+        renderReceptionistSection();
+        apiUpdateApptFull(serverAppt._id, { status }).catch(()=>{});
+      }
+    }).catch(() => { done(); });
+  } else {
+    // Persist to backend asynchronously
+    apiUpdateApptFull(persistId, { status }).then(result => {
+      done();
+      if(result && result.error){
+        toast(result.error, 'error');
+        // Reload fresh data on backend error
+        apiLoadRecentAppointments(90).then(() => renderReceptionistSection()).catch(()=>{});
+      }
+    }).catch(() => { done(); });
+  }
 }
 
 // ===== BILL / RECEIPT GENERATION =====
 function generateBill(apptId){
-  const a = DB.appointments.find(x => x.id === apptId);
+  let a = DB.appointments.find(x => x._id && String(x._id) === String(apptId));
+  if(!a){
+    a = DB.appointments.find(x => String(x.id) === String(apptId) && (x.status === 'Completed' || x.status === 'In Progress'))
+     || DB.appointments.find(x => String(x.id) === String(apptId));
+  }
   if(!a){ toast('Appointment not found','error'); return; }
 
   const svc   = DB.services.find(s => s.id === a.serviceId);
@@ -2110,8 +2146,14 @@ function confirmWalkIn(){
   if(!DB.billCounter) DB.billCounter = 1;
   const assignedBillNumber = String(DB.billCounter++).padStart(4, '0');
 
+  // Compute strictly unique appointment ID to prevent any collisions
+  const maxExisting = (DB.appointments || []).reduce((max, a) => Math.max(max, Number(a.id) || 0), 1000);
+  if (!DB.nextId) DB.nextId = {};
+  DB.nextId.appointment = Math.max(Number(DB.nextId.appointment) || 1001, maxExisting + 1);
+  const assignedApptId = DB.nextId.appointment++;
+
   const appt = {
-    id: DB.nextId.appointment++,
+    id: assignedApptId,
     userId: user.id,
     serviceId: svcId,
     staffId: stfId,

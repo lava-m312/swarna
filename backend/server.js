@@ -55,8 +55,9 @@ app.use(async (req, res, next) => {
 
 // Helper for next auto-increment integer ID
 async function getNextId(Model) {
-  const last = await Model.findOne().sort({ id: -1 });
-  return last ? last.id + 1 : 1;
+  const allDocs = await Model.find({}, 'id').lean();
+  const maxId = allDocs.reduce((max, d) => Math.max(max, Number(d.id) || 0), 0);
+  return maxId + 1;
 }
 
 // ===== REST API ROUTES =====
@@ -431,7 +432,7 @@ app.post('/api/appointments', async (req, res) => {
       if (customerUser) assignedUserId = customerUser.id;
     }
 
-    const nextApptId = Math.max(1001, (await getNextId(Appointment)));
+    const nextApptId = Math.max(1001, await getNextId(Appointment));
     const originalPrice = servicePrice !== undefined ? Number(servicePrice) : Number(amount || 0);
     const payableAmount = finalAmount !== undefined ? Number(finalAmount) : Number(amount || originalPrice);
 
@@ -502,12 +503,23 @@ app.patch('/api/appointments/:id/status', async (req, res) => {
       billNumber, sessionCounted, annualSessionNumber
     } = req.body;
 
-    // Lookup: 24-char hex → _id, otherwise numeric id
+    // Lookup: 24-char hex → _id, otherwise numeric id (preferring matching status if duplicate numeric id exists)
     let appt;
     if (/^[0-9a-fA-F]{24}$/.test(rawId)) {
       appt = await Appointment.findById(rawId);
     } else {
-      appt = await Appointment.findOne({ id: Number(rawId) });
+      const numId = Number(rawId);
+      if (status === 'In Progress') {
+        appt = await Appointment.findOne({ id: numId, status: 'Confirmed' }) ||
+               await Appointment.findOne({ id: numId, status: { $ne: 'Completed' } }) ||
+               await Appointment.findOne({ id: numId });
+      } else if (status === 'Completed') {
+        appt = await Appointment.findOne({ id: numId, status: 'In Progress' }) ||
+               await Appointment.findOne({ id: numId, status: { $ne: 'Completed' } }) ||
+               await Appointment.findOne({ id: numId });
+      } else {
+        appt = await Appointment.findOne({ id: numId });
+      }
     }
     if (!appt) return res.status(404).json({ error: 'Appointment not found' });
 
