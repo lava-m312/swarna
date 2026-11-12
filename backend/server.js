@@ -61,6 +61,21 @@ async function getNextId(Model) {
 
 // ===== REST API ROUTES =====
 
+const BUSINESS_CONFIG = {
+  name: "Swarna's Unisex Saloon & Spa",
+  gstRegistered: true,
+  gstin: '29AAACS1234A1Z5',
+  state: 'Karnataka',
+  stateCode: '29',
+  address: 'Mig34 1st Floor, KKHB Colony, Adichunchanagiri Road, RMP Quarters Rd, LIG 3rd Stage, Kuvempu Nagara, Mysuru, Karnataka 570023',
+  phone: '+91 98765 43210',
+  serviceCategory: 'Group 99972 - Beauty and Physical Well-being Services',
+  defaultGstRate: 5,
+  cgstRate: 2.5,
+  sgstRate: 2.5,
+  igstRate: 5.0
+};
+
 // 1. Full Database Sync Endpoint (for frontend initial load)
 app.get('/api/db/all', async (req, res) => {
   try {
@@ -78,6 +93,7 @@ app.get('/api/db/all', async (req, res) => {
     const annualMembers = await AnnualMember.find().lean();
 
     res.json({
+      businessConfig: BUSINESS_CONFIG,
       users,
       services,
       staff,
@@ -93,6 +109,10 @@ app.get('/api/db/all', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.get('/api/business-config', (req, res) => {
+  res.json(BUSINESS_CONFIG);
 });
 
 // 2. Authentication Routes
@@ -309,9 +329,46 @@ app.get('/api/appointments', async (req, res) => {
   }
 });
 
+// Task 3 — 90-day bookings endpoint (must be before /:id routes)
+app.get('/api/appointments/recent', async (req, res) => {
+  try {
+    let days = parseInt(req.query.days) || 90;
+    if (days > 365) days = 365;
+    const statusFilter = req.query.status;
+
+    const today = new Date().toISOString().split('T')[0];
+    const pastDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // date >= pastDate (covers history window) OR date >= today (future)
+    // Combined: date >= pastDate already covers date >= today, so just use pastDate
+    const dateQuery = { date: { $gte: pastDate } };
+
+    let query = dateQuery;
+    if (statusFilter && statusFilter !== 'all') {
+      query = { ...dateQuery, status: statusFilter };
+    }
+
+    const appointments = await Appointment.find(query)
+      .sort({ date: -1, time: -1 })
+      .lean();
+
+    res.json(appointments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/appointments', async (req, res) => {
   try {
-    const { staffId, date, time, userId, serviceId, amount, duration, couponDiscount, paymentMethod, transactionId } = req.body;
+    const {
+      staffId, date, time, userId, serviceId, amount, duration,
+      couponDiscount, paymentMethod, transactionId,
+      // Task 4 — walk-in & GST fields
+      customerName, customerPhone, stylistName,
+      gstRate, gstAmount, cgst, sgst, igst, taxTreatment, gstRegistered,
+      gstDiscount, serviceDiscount, taxableAmount,
+      billNumber, isAnnualMember, annualSessionNumber, sessionCounted
+    } = req.body;
 
     const conflict = await Appointment.findOne({
       staffId: Number(staffId),
@@ -338,7 +395,25 @@ app.post('/api/appointments', async (req, res) => {
       paymentMethod: paymentMethod || 'UPI',
       transactionId: transactionId || '',
       status: 'Confirmed',
-      paymentStatus: 'Paid'
+      paymentStatus: 'Paid',
+      // walk-in & GST fields (56th GST Council: 5% for qualifying salon services Group 99972)
+      customerName: customerName || '',
+      customerPhone: customerPhone || '',
+      stylistName: stylistName || '',
+      gstRate: gstRate !== undefined ? Number(gstRate) : 5,
+      gstAmount: gstAmount !== undefined ? Number(gstAmount) : 0,
+      cgst: cgst !== undefined ? Number(cgst) : 0,
+      sgst: sgst !== undefined ? Number(sgst) : 0,
+      igst: igst !== undefined ? Number(igst) : 0,
+      taxTreatment: taxTreatment || 'Intra-State',
+      gstRegistered: gstRegistered !== undefined ? Boolean(gstRegistered) : true,
+      gstDiscount: gstDiscount !== undefined ? Number(gstDiscount) : 0,
+      serviceDiscount: serviceDiscount !== undefined ? Number(serviceDiscount) : 0,
+      taxableAmount: taxableAmount !== undefined ? Number(taxableAmount) : 0,
+      billNumber: billNumber || '',
+      isAnnualMember: isAnnualMember || false,
+      annualSessionNumber: annualSessionNumber !== undefined ? Number(annualSessionNumber) : undefined,
+      sessionCounted: sessionCounted || false
     });
 
     await newAppt.save();
@@ -360,19 +435,67 @@ app.post('/api/appointments', async (req, res) => {
   }
 });
 
+// Task 2 — PATCH with _id OR numeric id, extra fields, idempotency, Task 5 — block Completed transitions
 app.patch('/api/appointments/:id/status', async (req, res) => {
   try {
-    const apptId = Number(req.params.id);
-    const { status, paymentStatus } = req.body;
+    const rawId = req.params.id;
+    const {
+      status, paymentStatus,
+      gstRate, gstAmount, cgst, sgst, igst, taxTreatment, gstRegistered,
+      gstDiscount, serviceDiscount, taxableAmount,
+      billNumber, sessionCounted, annualSessionNumber
+    } = req.body;
 
-    const appt = await Appointment.findOne({ id: apptId });
+    // Lookup: 24-char hex → _id, otherwise numeric id
+    let appt;
+    if (/^[0-9a-fA-F]{24}$/.test(rawId)) {
+      appt = await Appointment.findById(rawId);
+    } else {
+      appt = await Appointment.findOne({ id: Number(rawId) });
+    }
     if (!appt) return res.status(404).json({ error: 'Appointment not found' });
 
-    if (status) appt.status = status;
-    if (paymentStatus) appt.paymentStatus = paymentStatus;
+    // Task 5 — block any change away from Completed
+    if (appt.status === 'Completed' && status && status !== 'Completed') {
+      return res.status(409).json({ error: 'Appointment already completed. Status cannot be changed.' });
+    }
 
-    await appt.save();
-    res.json(appt);
+    // Idempotency: if status already matches, return current doc with 200
+    if (status && appt.status === status &&
+        !paymentStatus && gstRate === undefined && gstAmount === undefined &&
+        cgst === undefined && sgst === undefined && igst === undefined &&
+        taxTreatment === undefined && gstRegistered === undefined &&
+        gstDiscount === undefined && serviceDiscount === undefined &&
+        taxableAmount === undefined && billNumber === undefined &&
+        sessionCounted === undefined && annualSessionNumber === undefined) {
+      return res.json(appt);
+    }
+
+    // Build update object — only include fields present in body
+    const update = {};
+    if (status !== undefined) update.status = status;
+    if (paymentStatus !== undefined) update.paymentStatus = paymentStatus;
+    if (gstRate !== undefined) update.gstRate = Number(gstRate);
+    if (gstAmount !== undefined) update.gstAmount = Number(gstAmount);
+    if (cgst !== undefined) update.cgst = Number(cgst);
+    if (sgst !== undefined) update.sgst = Number(sgst);
+    if (igst !== undefined) update.igst = Number(igst);
+    if (taxTreatment !== undefined) update.taxTreatment = String(taxTreatment);
+    if (gstRegistered !== undefined) update.gstRegistered = Boolean(gstRegistered);
+    if (gstDiscount !== undefined) update.gstDiscount = Number(gstDiscount);
+    if (serviceDiscount !== undefined) update.serviceDiscount = Number(serviceDiscount);
+    if (taxableAmount !== undefined) update.taxableAmount = Number(taxableAmount);
+    if (billNumber !== undefined) update.billNumber = billNumber;
+    if (sessionCounted !== undefined) update.sessionCounted = sessionCounted;
+    if (annualSessionNumber !== undefined) update.annualSessionNumber = Number(annualSessionNumber);
+
+    const updated = await Appointment.findByIdAndUpdate(
+      appt._id,
+      { $set: update },
+      { new: true, runValidators: true }
+    );
+
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

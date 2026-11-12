@@ -660,11 +660,11 @@
           <div class="bill-salon-addr">Mig34 1st Floor, KKHB Colony, Adichunchanagiri Road,</div>
           <div class="bill-salon-addr">RMP Quarters Rd, LIG 3rd Stage, Kuvempu Nagara,</div>
           <div class="bill-salon-addr">Mysuru, Karnataka 570023</div>
-          <div class="bill-salon-addr">GSTIN: 29AAACS1234A1Z5</div>
+          <div class="bill-salon-addr" id="bill-salon-gstin">GSTIN: 29AAACS1234A1Z5</div>
         </div>
       </div>
       <div class="bill-title-strip">
-        <span>TAX INVOICE / RECEIPT</span>
+        <span id="bill-receipt-title">TAX INVOICE / RECEIPT</span>
       </div>
     </div>
 
@@ -710,8 +710,25 @@
       <div class="bill-section-label">AMOUNT BREAKDOWN</div>
       <div class="bill-amount-table">
         <div class="bill-amount-row"><span>Service Price</span><span id="bill-price">—</span></div>
-        <div class="bill-amount-row discount-row"><span>Discount</span><span id="bill-discount">—</span></div>
-        <div class="bill-amount-row"><span>GST / Tax (5%)</span><span id="bill-tax">—</span></div>
+        <div class="bill-amount-row no-print" style="align-items:center;gap:8px">
+          <span>Eligible Service Discount (₹)</span>
+          <input id="bill-service-discount-input" type="number" min="0" value="0" oninput="recalcBillTax()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--bg4);border-radius:6px;padding:4px 8px;width:90px;font-size:13px;text-align:right">
+        </div>
+        <div class="bill-amount-row discount-row" id="bill-service-discount-row" style="display:none"><span>Service Discount</span><span id="bill-discount">—</span></div>
+        <div class="bill-amount-row"><span>Taxable Amount</span><span id="bill-taxable-amount">—</span></div>
+        <div class="bill-amount-row no-print" style="align-items:center;gap:8px">
+          <span>Tax Treatment</span>
+          <select id="bill-tax-treatment-select" onchange="recalcBillTax()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--gold-dark);border-radius:6px;padding:4px 8px;font-size:12px">
+            <option value="intra">Intra-State (CGST 2.5% + SGST 2.5%)</option>
+            <option value="inter">Inter-State (IGST 5.0%)</option>
+            <option value="exempt">Exempt / Non-Taxable</option>
+          </select>
+        </div>
+        <div class="bill-amount-row" id="bill-tax-treatment-row"><span style="font-size:12px;color:var(--text3)">Tax Treatment</span><span id="bill-tax-treatment" style="font-size:12px;font-weight:600">Intra-State (Karnataka)</span></div>
+        <div class="bill-amount-row" id="bill-cgst-row"><span>CGST (2.5%)</span><span id="bill-cgst">—</span></div>
+        <div class="bill-amount-row" id="bill-sgst-row"><span>SGST (2.5%)</span><span id="bill-sgst">—</span></div>
+        <div class="bill-amount-row" id="bill-igst-row" style="display:none"><span>IGST (5.0%)</span><span id="bill-igst">—</span></div>
+        <div class="bill-amount-row" id="bill-exempt-row" style="display:none"><span>GST (Exempt)</span><span>₹0.00</span></div>
         <div class="bill-total-row"><span>TOTAL AMOUNT</span><span id="bill-total">—</span></div>
       </div>
 
@@ -771,6 +788,17 @@
         <div class="form-group"><label class="form-label">Service</label><select id="walkin-service" class="form-control"></select></div>
         <div class="form-group"><label class="form-label">Price (₹)</label><input id="walkin-price" class="form-control" type="number" placeholder="Enter price" min="0"></div>
       </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Service Discount (₹)</label><input id="walkin-discount" class="form-control" type="number" placeholder="0" min="0" value="0"></div>
+        <div class="form-group"><label class="form-label">Tax Treatment</label>
+          <select id="walkin-tax-treatment" class="form-control">
+            <option value="intra">Intra-State (CGST 2.5% + SGST 2.5%)</option>
+            <option value="inter">Inter-State (IGST 5.0%)</option>
+            <option value="exempt">Exempt / Non-Taxable</option>
+          </select>
+        </div>
+      </div>
+      <div id="walkin-price-preview" style="padding:6px 0 2px;font-size:13px;color:var(--text3)"></div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Stylist Name</label><input id="walkin-staff" list="stylist-list" class="form-control" type="text" placeholder="Type stylist name"><datalist id="stylist-list"></datalist></div>
         <div class="form-group"><label class="form-label">Date</label><input id="walkin-date" class="form-control" type="date"></div>

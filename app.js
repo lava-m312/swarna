@@ -6,6 +6,53 @@ let receptSection = 'overview';
 let currentTab = 'upcoming';
 let favServices = JSON.parse(localStorage.getItem('favServices')||'[]');
 let favStylists = JSON.parse(localStorage.getItem('favStylists')||'[]');
+let bookingFilter = 'all'; // Filter state for Bookings & Reservations table
+
+// ===== 56th GST Council Compliant Tax Engine (Group 99972 - 5% GST) =====
+function calculateTax(taxableAmount, treatment = 'intra', isRegistered = true) {
+  taxableAmount = Math.max(0, Math.round(Number(taxableAmount || 0) * 100) / 100);
+  if (!isRegistered || treatment === 'exempt') {
+    return {
+      gstRate: 0,
+      cgst: 0,
+      sgst: 0,
+      igst: 0,
+      gstAmount: 0,
+      finalTotal: taxableAmount,
+      treatment: treatment,
+      treatmentLabel: !isRegistered ? 'Unregistered / Non-Taxable' : 'Exempt / Non-Taxable (Authorized)'
+    };
+  }
+  if (treatment === 'inter') {
+    const igst = Math.round(taxableAmount * 0.05 * 100) / 100;
+    const finalTotal = Math.round((taxableAmount + igst) * 100) / 100;
+    return {
+      gstRate: 5,
+      cgst: 0,
+      sgst: 0,
+      igst: igst,
+      gstAmount: igst,
+      finalTotal: finalTotal,
+      treatment: treatment,
+      treatmentLabel: 'Inter-State Supply (IGST 5.0%)'
+    };
+  }
+  // Default: Intra-State (Karnataka) — 2.5% CGST + 2.5% SGST = 5.0%
+  const cgst = Math.round(taxableAmount * 0.025 * 100) / 100;
+  const sgst = Math.round(taxableAmount * 0.025 * 100) / 100;
+  const gstAmount = Math.round((cgst + sgst) * 100) / 100;
+  const finalTotal = Math.round((taxableAmount + gstAmount) * 100) / 100;
+  return {
+    gstRate: 5,
+    cgst: cgst,
+    sgst: sgst,
+    igst: 0,
+    gstAmount: gstAmount,
+    finalTotal: finalTotal,
+    treatment: treatment,
+    treatmentLabel: 'Intra-State (CGST 2.5% + SGST 2.5%)'
+  };
+}
 
 // ===== UTILS =====
 function $(id){ return document.getElementById(id); }
@@ -820,18 +867,12 @@ function openWalkinModal(){
   const priceInput = $('walkin-price');
   if(svcSel){
     const activeSvcs = DB.services.filter(s=>s.status);
-    // Display services WITHOUT price tag in the label
     svcSel.innerHTML = activeSvcs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
     if(activeSvcs.length && priceInput){
       priceInput.value = getDiscountedPrice(activeSvcs[0]);
     }
-    svcSel.onchange = () => {
-      const selected = DB.services.find(s => s.id == svcSel.value);
-      if(selected && priceInput) priceInput.value = getDiscountedPrice(selected);
-    };
   }
 
-  // Allow stylist name to be typed manually; supply datalist for convenience
   const stylistList = $('stylist-list');
   if(stylistList){
     stylistList.innerHTML = DB.staff.filter(s=>s.status).map(s=>`<option value="${s.name}"></option>`).join('');
@@ -857,6 +898,46 @@ function openWalkinModal(){
   if(annualCheck) annualCheck.checked = false;
   const badge = $('walkin-annual-badge');
   if(badge) badge.style.display = 'none';
+
+  const discountInput = $('walkin-discount');
+  if(discountInput) discountInput.value = '0';
+  const taxTreatmentSel = $('walkin-tax-treatment');
+  if(taxTreatmentSel) taxTreatmentSel.value = 'intra';
+
+  const updatePreview = () => {
+    const price = parseFloat($('walkin-price')?.value) || 0;
+    const discount = parseFloat($('walkin-discount')?.value) || 0;
+    const treatment = $('walkin-tax-treatment')?.value || 'intra';
+    const isReg = DB.businessConfig?.gstRegistered !== false;
+    const taxable = Math.max(0, price - discount);
+    const tax = calculateTax(taxable, treatment, isReg);
+    const preview = $('walkin-price-preview');
+    if(preview){
+      if(!isReg || treatment === 'exempt'){
+        preview.innerHTML = `Taxable: <b>₹${taxable}</b> | <span style="color:var(--text3)">${tax.treatmentLabel}</span> | <span style="color:var(--gold);font-weight:700">Total: ₹${tax.finalTotal}</span>`;
+      } else if(treatment === 'inter'){
+        preview.innerHTML = `Taxable: <b>₹${taxable}</b> | IGST (5%): <b>₹${tax.igst}</b> | <span style="color:var(--gold);font-weight:700">Total: ₹${tax.finalTotal}</span>`;
+      } else {
+        preview.innerHTML = `Taxable: <b>₹${taxable}</b> | CGST(2.5%): <b>₹${tax.cgst}</b> | SGST(2.5%): <b>₹${tax.sgst}</b> | <span style="color:var(--gold);font-weight:700">Total: ₹${tax.finalTotal}</span>`;
+      }
+    }
+  };
+
+  ['walkin-price','walkin-discount','walkin-tax-treatment'].forEach(id => {
+    const el = $(id);
+    if(el){
+      el.oninput = updatePreview;
+      el.onchange = updatePreview;
+    }
+  });
+  if(svcSel){
+    svcSel.onchange = () => {
+      const selected = DB.services.find(s => s.id == svcSel.value);
+      if(selected && priceInput) priceInput.value = getDiscountedPrice(selected);
+      updatePreview();
+    };
+  }
+  updatePreview();
 
   openModal('walkin-modal');
 }
@@ -938,24 +1019,51 @@ function switchReceptSection(section){
 }
 
 function renderReceptBookings(){
-  const appts = [...DB.appointments].reverse();
+  const todayStr = new Date().toISOString().split('T')[0];
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+
+  const appts = DB.appointments.filter(a => {
+    if(!a.date) return false;
+    switch(bookingFilter){
+      case 'today':     return a.date === todayStr;
+      case 'upcoming':  return a.date > todayStr && a.status !== 'Cancelled' && a.status !== 'Completed';
+      case 'completed': return a.status === 'Completed';
+      case 'cancelled': return a.status === 'Cancelled';
+      default:          return a.date >= cutoffStr;
+    }
+  }).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+
+  const filters = ['all','today','upcoming','completed','cancelled'];
+  const filterLabels = { all:'All (90 Days)', today:'Today', upcoming:'Upcoming', completed:'Completed', cancelled:'Cancelled' };
+
   $('recept-content').innerHTML = `
     <h2 class="dash-section-title">📅 Bookings & Reservations</h2>
     <p class="dash-section-sub">View and manage all customer appointments</p>
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <button class="btn btn-gold btn-sm" onclick="openWalkinModal()">➕ New Walk-in Booking</button>
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      ${filters.map(f => `<button class="btn ${bookingFilter===f?'btn-gold':'btn-outline'} btn-sm" onclick="bookingFilter='${f}';renderReceptBookings()">${filterLabels[f]}</button>`).join('')}
+    </div>
     <div class="admin-section">
-      <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Stylist</th><th>Date & Time</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody>${appts.map(a=>{
-        const svc=DB.services.find(s=>s.id===a.serviceId);
-        const user=DB.users.find(u=>u.id===a.userId);
-        const staff=DB.staff.find(s=>s.id===a.staffId);
-        const isAnnual = a.isAnnualMember || (user?.membership==='Annual');
-        return `<tr><td>#${a.id} ${isAnnual?'<span class="badge badge-gold" style="font-size:10px">👑 Annual</span>':''}</td><td>${user?.name||a.customerName||'Walk-in'}</td><td>${svc?.name||'—'}</td><td>${a.stylistName||staff?.name||'—'}</td><td>${a.date} ${formatTime(a.time)}</td><td>₹${a.amount}</td><td>${statusBadge(a.status)}</td>
-        <td><div class="admin-action-row">${a.status==='Confirmed'?`<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(${a.id},'In Progress')">Check In</button>`:''}${a.status==='In Progress'?`<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus(${a.id},'Completed')">Done</button>`:''}${a.status!=='Cancelled'&&a.status!=='Completed'?`<button class="btn btn-danger btn-sm" onclick="receptionistUpdateStatus(${a.id},'Cancelled')">✕</button>`:''}${a.status==='Completed'||a.status==='In Progress'||a.status==='Confirmed'?`<button class="btn btn-outline btn-sm" onclick="generateBill(${a.id})">🧾 Bill</button>`:''}</div></td></tr>`;
-      }).join('')}</tbody></table></div>
+      ${appts.length ? `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Stylist</th><th>Date & Time</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${appts.map(a => {
+        const svc = DB.services.find(s => s.id === a.serviceId);
+        const user = DB.users.find(u => u.id === a.userId);
+        const staff = DB.staff.find(s => s.id === a.staffId);
+        const isAnnual = a.isAnnualMember || (user?.membership === 'Annual');
+        return '<tr><td>#' + a.id + ' ' + (isAnnual?'<span class="badge badge-gold" style="font-size:10px">👑</span>':'') + '</td><td>' + (user?.name||a.customerName||'Walk-in') + '</td><td>' + (svc?.name||'—') + '</td><td>' + (a.stylistName||staff?.name||'—') + '</td><td>' + a.date + ' ' + formatTime(a.time) + '</td><td>₹' + a.amount + '</td><td>' + statusBadge(a.status) + '</td><td><div class="admin-action-row">' + (a.status==='Confirmed'?'<button class="btn btn-success btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;In Progress&apos;)">Check In</button>':'') + (a.status==='In Progress'?'<button class="btn btn-gold btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;Completed&apos;)">Done</button>':'') + (a.status!=='Cancelled'&&a.status!=='Completed'?'<button class="btn btn-danger btn-sm" onclick="receptionistUpdateStatus(' + a.id + ',&apos;Cancelled&apos;)">✕</button>':'') + (['Completed','In Progress','Confirmed'].includes(a.status)?'<button class="btn btn-outline btn-sm" onclick="generateBill(' + a.id + ')">🧾 Bill</button>':'') + '</div></td></tr>';
+      }).join('')}</tbody></table></div>` : '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No bookings found</div><div class="empty-sub">No appointments match the selected filter.</div></div>'}
     </div>`;
+
+  // Background refresh from backend (non-blocking, skip re-render loop by not calling renderReceptBookings again)
+  if(!renderReceptBookings._refreshing){
+    renderReceptBookings._refreshing = true;
+    apiLoadRecentAppointments(90).then(() => {
+      renderReceptBookings._refreshing = false;
+    }).catch(() => { renderReceptBookings._refreshing = false; });
+  }
 }
 
 function renderReceptCheckInOut(){
@@ -1162,8 +1270,31 @@ function renderReceptProfile(){
 }
 
 function receptionistUpdateStatus(id, status){
+  if(receptionistUpdateStatus._inFlight && receptionistUpdateStatus._inFlight[id]) return;
+  if(!receptionistUpdateStatus._inFlight) receptionistUpdateStatus._inFlight = {};
+  receptionistUpdateStatus._inFlight[id] = true;
+  const done = () => { delete receptionistUpdateStatus._inFlight[id]; };
+
   const a = DB.appointments.find(x => x.id === id);
-  if(a){ a.status = status; saveDB(); toast(`Status updated to ${status}`, 'success'); renderReceptionistSection(); }
+  if(!a){ toast('Appointment not found','error'); done(); return; }
+  if(a.status === status){ renderReceptionistSection(); done(); return; }
+  if(a.status === 'Completed' && status !== 'Completed'){
+    toast('This appointment is already completed and cannot be changed.','error'); done(); return;
+  }
+  // Optimistically update local state so UI responds instantly
+  a.status = status;
+  saveDB();
+  renderReceptionistSection();
+  toast(`Status updated to ${status}`, 'success');
+  // Persist to backend asynchronously
+  apiUpdateApptFull(id, { status }).then(result => {
+    done();
+    if(result && result.error){
+      toast(result.error, 'error');
+      // Reload fresh data on backend error
+      apiLoadRecentAppointments(90).then(() => renderReceptionistSection()).catch(()=>{});
+    }
+  }).catch(() => { done(); });
 }
 
 // ===== BILL / RECEIPT GENERATION =====
@@ -1174,32 +1305,107 @@ function generateBill(apptId){
   const svc   = DB.services.find(s => s.id === a.serviceId);
   const user  = DB.users.find(u => u.id === a.userId);
   const staff = DB.staff.find(s => s.id === a.staffId);
+  const isRegistered = DB.businessConfig?.gstRegistered !== false;
 
-  // Compute amounts
-  const total      = a.amount || (svc ? getDiscountedPrice(svc) : 0);
-  const discount   = a.discount || 0;
-  const basePrice  = a.tax ? (total - a.tax) : Math.round(total / 1.05);
-  const tax        = a.tax || (total - basePrice);
+  // Header configuration
+  const titleStrip = $('bill-receipt-title');
+  const gstinHeader = $('bill-salon-gstin');
+  if(titleStrip){
+    titleStrip.textContent = isRegistered ? 'TAX INVOICE / RECEIPT' : 'INVOICE / RECEIPT';
+  }
+  if(gstinHeader){
+    gstinHeader.style.display = isRegistered ? 'block' : 'none';
+    gstinHeader.textContent = 'GSTIN: ' + (DB.businessConfig?.gstin || '29AAACS1234A1Z5');
+  }
 
-  // Bill No starting from 0001
+  // Check for historical invoice (created prior to this GST system)
+  const isHistorical = Boolean(a.billNumber && a.cgst === undefined && a.taxTreatment === undefined && a.gstRate !== 5);
+
+  let servicePrice, serviceDiscount, taxableAmount, treatment, tax;
+
+  if(isHistorical){
+    // Preserve exact historical invoice calculation
+    const total = a.amount || (svc ? getDiscountedPrice(svc) : 0);
+    const disc = a.discount || a.couponDiscount || 0;
+    servicePrice = a.tax ? (total - a.tax) : Math.round(total / 1.05);
+    serviceDiscount = disc;
+    taxableAmount = servicePrice - disc;
+    treatment = 'intra';
+    tax = {
+      gstRate: a.gstRate || 5,
+      cgst: Math.round((a.tax || (total - servicePrice)) / 2 * 100) / 100,
+      sgst: Math.round((a.tax || (total - servicePrice)) / 2 * 100) / 100,
+      igst: 0,
+      gstAmount: a.tax || (total - servicePrice),
+      finalTotal: total,
+      treatmentLabel: 'Historical Invoice Record'
+    };
+  } else if(a.cgst !== undefined || a.taxTreatment !== undefined){
+    // Load stored values for this modern bill
+    serviceDiscount = a.serviceDiscount || 0;
+    taxableAmount = a.taxableAmount !== undefined ? a.taxableAmount : Math.max(0, (a.amount || 0) - (a.gstAmount || 0));
+    servicePrice = a.taxableAmount !== undefined ? (taxableAmount + serviceDiscount) : (svc ? svc.price : a.amount);
+    if(a.taxTreatment && a.taxTreatment.includes('Inter')) treatment = 'inter';
+    else if(a.taxTreatment && (a.taxTreatment.includes('Exempt') || a.taxTreatment.includes('Unregistered'))) treatment = 'exempt';
+    else treatment = 'intra';
+
+    tax = {
+      gstRate: a.gstRate !== undefined ? a.gstRate : 5,
+      cgst: a.cgst !== undefined ? a.cgst : 0,
+      sgst: a.sgst !== undefined ? a.sgst : 0,
+      igst: a.igst !== undefined ? a.igst : 0,
+      gstAmount: a.gstAmount !== undefined ? a.gstAmount : 0,
+      finalTotal: a.amount || (taxableAmount + (a.gstAmount || 0)),
+      treatmentLabel: a.taxTreatment || 'Intra-State (CGST 2.5% + SGST 2.5%)'
+    };
+  } else {
+    // New bill calculation
+    const catalogPrice = svc ? getDiscountedPrice(svc) : (a.amount || 0);
+    servicePrice = a.amount && a.amount > 0 ? a.amount : catalogPrice;
+    serviceDiscount = a.serviceDiscount || a.couponDiscount || 0;
+    taxableAmount = Math.max(0, servicePrice - serviceDiscount);
+    treatment = 'intra';
+    tax = calculateTax(taxableAmount, treatment, isRegistered);
+  }
+
+  // Prevent duplicate bill number assignment: if already billed, reuse existing
   if(!a.billNumber){
     if(!DB.billCounter) DB.billCounter = 1;
     a.billNumber = String(DB.billCounter++).padStart(4, '0');
+    // Save generated tax fields to appointment
+    a.serviceDiscount = serviceDiscount;
+    a.taxableAmount = taxableAmount;
+    a.gstRate = tax.gstRate;
+    a.gstAmount = tax.gstAmount;
+    a.cgst = tax.cgst;
+    a.sgst = tax.sgst;
+    a.igst = tax.igst;
+    a.taxTreatment = tax.treatmentLabel;
+    a.amount = tax.finalTotal;
     saveDB();
+    apiUpdateApptFull(apptId, {
+      billNumber: a.billNumber,
+      serviceDiscount,
+      taxableAmount,
+      gstRate: tax.gstRate,
+      gstAmount: tax.gstAmount,
+      cgst: tax.cgst,
+      sgst: tax.sgst,
+      igst: tax.igst,
+      taxTreatment: tax.treatmentLabel
+    }).catch(() => {});
   }
-  const billNumStr = '#BILL-' + a.billNumber;
 
-  // Bill No & generated datetime
+  const billNumStr = '#BILL-' + a.billNumber;
   const now = new Date();
   const billDT = now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) +
                  ' ' + now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
 
-  // Check annual package holder
+  // Annual membership check
   const phone = user?.phone || a.customerPhone;
-  const member = (phone && phone !== 'N/A' && DB.annualMembers?.find(m => m.phone === phone)) || null;
+  let member = (phone && phone !== 'N/A' && DB.annualMembers?.find(m => m.phone === phone)) || null;
   const isAnnual = a.isAnnualMember || !!member || (user?.membership === 'Annual');
 
-  // Track session count if not already counted for this bill
   if(isAnnual && !a.sessionCounted){
     if(member){
       member.sessionsCompleted = (member.sessionsCompleted || 0) + 1;
@@ -1211,11 +1417,11 @@ function generateBill(apptId){
     } else if(phone && phone !== 'N/A'){
       member = {
         name: user?.name || a.customerName || 'Annual Member',
-        phone: phone,
+        phone,
         package: 'Annual Wellness Package',
         totalSessions: 12,
         sessionsCompleted: 1,
-        amount: total,
+        amount: tax.finalTotal,
         startDate: new Date().toISOString().split('T')[0],
         status: 'Active'
       };
@@ -1228,8 +1434,18 @@ function generateBill(apptId){
       toast('Annual Member registered & Session #1 recorded!', 'info');
     }
   }
-
   const sessNum = a.annualSessionNumber || member?.sessionsCompleted || 1;
+
+  // Cache state for recalcBillTax
+  window._billState = {
+    apptId,
+    servicePrice,
+    serviceDiscount,
+    taxableAmount,
+    treatment,
+    isHistorical,
+    tax
+  };
 
   // Populate modal fields
   $('bill-id').textContent        = billNumStr;
@@ -1241,12 +1457,51 @@ function generateBill(apptId){
   $('bill-date').textContent      = formatDate(a.date);
   $('bill-time').textContent      = formatTime(a.time);
   $('bill-duration').textContent  = `${a.duration || svc?.duration || '—'} min`;
-  $('bill-pay-mode').textContent  = a.paymentMethod || '—';
-  $('bill-price').textContent     = `₹${basePrice + discount}`;
-  $('bill-discount').textContent  = discount > 0 ? `-₹${discount}` : '—';
-  $('bill-tax').textContent       = `₹${tax}`;
-  $('bill-total').textContent     = `₹${total}`;
+  $('bill-pay-mode').textContent  = a.paymentMethod || 'UPI';
   $('bill-pay-status').textContent= a.paymentStatus || 'Paid';
+
+  // Amount breakdown fields
+  if($('bill-price')) $('bill-price').textContent = `₹${servicePrice.toFixed(2)}`;
+  const discInput = $('bill-service-discount-input');
+  if(discInput) discInput.value = serviceDiscount;
+  const svcDiscRow = $('bill-service-discount-row');
+  if(svcDiscRow) svcDiscRow.style.display = serviceDiscount > 0 ? 'flex' : 'none';
+  if($('bill-discount')) $('bill-discount').textContent = serviceDiscount > 0 ? `-₹${serviceDiscount.toFixed(2)}` : '—';
+  if($('bill-taxable-amount')) $('bill-taxable-amount').textContent = `₹${taxableAmount.toFixed(2)}`;
+
+  // Tax treatment dropdown & labels
+  const treatmentSel = $('bill-tax-treatment-select');
+  if(treatmentSel) treatmentSel.value = treatment;
+  if($('bill-tax-treatment')) $('bill-tax-treatment').textContent = tax.treatmentLabel;
+
+  // Tax breakdown rows
+  const cgstRow = $('bill-cgst-row');
+  const sgstRow = $('bill-sgst-row');
+  const igstRow = $('bill-igst-row');
+  const exemptRow = $('bill-exempt-row');
+
+  if(treatment === 'inter' && isRegistered){
+    if(cgstRow) cgstRow.style.display = 'none';
+    if(sgstRow) sgstRow.style.display = 'none';
+    if(igstRow) igstRow.style.display = 'flex';
+    if(exemptRow) exemptRow.style.display = 'none';
+    if($('bill-igst')) $('bill-igst').textContent = `₹${tax.igst.toFixed(2)}`;
+  } else if((treatment === 'exempt') || !isRegistered){
+    if(cgstRow) cgstRow.style.display = 'none';
+    if(sgstRow) sgstRow.style.display = 'none';
+    if(igstRow) igstRow.style.display = 'none';
+    if(exemptRow) exemptRow.style.display = 'flex';
+  } else {
+    // Intra-State default (Karnataka: CGST 2.5% + SGST 2.5%)
+    if(cgstRow) cgstRow.style.display = 'flex';
+    if(sgstRow) sgstRow.style.display = 'flex';
+    if(igstRow) igstRow.style.display = 'none';
+    if(exemptRow) exemptRow.style.display = 'none';
+    if($('bill-cgst')) $('bill-cgst').textContent = `₹${tax.cgst.toFixed(2)}`;
+    if($('bill-sgst')) $('bill-sgst').textContent = `₹${tax.sgst.toFixed(2)}`;
+  }
+
+  if($('bill-total')) $('bill-total').textContent = `₹${tax.finalTotal.toFixed(2)}`;
 
   // Package row
   const pkgRow = $('bill-package-row');
@@ -1263,25 +1518,120 @@ function generateBill(apptId){
   openModal('bill-modal');
 }
 
+// Interactive recalculation when eligible service discount or tax treatment changes
+function recalcBillTax(){
+  if(!window._billState) return;
+  const { apptId, servicePrice } = window._billState;
+  const isRegistered = DB.businessConfig?.gstRegistered !== false;
+
+  const serviceDiscount = Math.max(0, parseFloat($('bill-service-discount-input')?.value) || 0);
+  const treatment = $('bill-tax-treatment-select')?.value || 'intra';
+  const taxableAmount = Math.max(0, servicePrice - serviceDiscount);
+  const tax = calculateTax(taxableAmount, treatment, isRegistered);
+
+  if($('bill-price')) $('bill-price').textContent = `₹${servicePrice.toFixed(2)}`;
+  const svcDiscRow = $('bill-service-discount-row');
+  if(svcDiscRow) svcDiscRow.style.display = serviceDiscount > 0 ? 'flex' : 'none';
+  if($('bill-discount')) $('bill-discount').textContent = serviceDiscount > 0 ? `-₹${serviceDiscount.toFixed(2)}` : '—';
+  if($('bill-taxable-amount')) $('bill-taxable-amount').textContent = `₹${taxableAmount.toFixed(2)}`;
+
+  if($('bill-tax-treatment')) $('bill-tax-treatment').textContent = tax.treatmentLabel;
+
+  const cgstRow = $('bill-cgst-row');
+  const sgstRow = $('bill-sgst-row');
+  const igstRow = $('bill-igst-row');
+  const exemptRow = $('bill-exempt-row');
+
+  if(treatment === 'inter' && isRegistered){
+    if(cgstRow) cgstRow.style.display = 'none';
+    if(sgstRow) sgstRow.style.display = 'none';
+    if(igstRow) igstRow.style.display = 'flex';
+    if(exemptRow) exemptRow.style.display = 'none';
+    if($('bill-igst')) $('bill-igst').textContent = `₹${tax.igst.toFixed(2)}`;
+  } else if(treatment === 'exempt' || !isRegistered){
+    if(cgstRow) cgstRow.style.display = 'none';
+    if(sgstRow) sgstRow.style.display = 'none';
+    if(igstRow) igstRow.style.display = 'none';
+    if(exemptRow) exemptRow.style.display = 'flex';
+  } else {
+    if(cgstRow) cgstRow.style.display = 'flex';
+    if(sgstRow) sgstRow.style.display = 'flex';
+    if(igstRow) igstRow.style.display = 'none';
+    if(exemptRow) exemptRow.style.display = 'none';
+    if($('bill-cgst')) $('bill-cgst').textContent = `₹${tax.cgst.toFixed(2)}`;
+    if($('bill-sgst')) $('bill-sgst').textContent = `₹${tax.sgst.toFixed(2)}`;
+  }
+
+  if($('bill-total')) $('bill-total').textContent = `₹${tax.finalTotal.toFixed(2)}`;
+
+  // Update cached state
+  window._billState.serviceDiscount = serviceDiscount;
+  window._billState.taxableAmount = taxableAmount;
+  window._billState.treatment = treatment;
+  window._billState.tax = tax;
+
+  // Persist updated calculation to MongoDB appointment record and local DB
+  if(apptId){
+    const a = DB.appointments.find(x => x.id === apptId);
+    if(a){
+      a.serviceDiscount = serviceDiscount;
+      a.taxableAmount = taxableAmount;
+      a.gstRate = tax.gstRate;
+      a.gstAmount = tax.gstAmount;
+      a.cgst = tax.cgst;
+      a.sgst = tax.sgst;
+      a.igst = tax.igst;
+      a.taxTreatment = tax.treatmentLabel;
+      a.amount = tax.finalTotal;
+      saveDB();
+    }
+    apiUpdateApptFull(apptId, {
+      serviceDiscount,
+      taxableAmount,
+      gstRate: tax.gstRate,
+      gstAmount: tax.gstAmount,
+      cgst: tax.cgst,
+      sgst: tax.sgst,
+      igst: tax.igst,
+      taxTreatment: tax.treatmentLabel,
+      paymentStatus: 'Paid'
+    }).catch(() => {});
+  }
+}
+
+// Backward-compatibility alias
+function recalcBillGST(){
+  recalcBillTax();
+}
+
 function printBill(){
-  // Gather current bill data from the modal DOM
-  const billNo    = $('bill-id')?.textContent        || '';
-  const billDT    = $('bill-datetime')?.textContent  || '';
-  const custName  = $('bill-cust-name')?.textContent || '';
-  const custPhone = $('bill-cust-phone')?.textContent|| '';
-  const service   = $('bill-service')?.textContent   || '';
-  const stylist   = $('bill-stylist')?.textContent   || '';
-  const date      = $('bill-date')?.textContent      || '';
-  const time      = $('bill-time')?.textContent      || '';
-  const duration  = $('bill-duration')?.textContent  || '';
-  const payMode   = $('bill-pay-mode')?.textContent  || '';
-  const price     = $('bill-price')?.textContent     || '';
-  const discount  = $('bill-discount')?.textContent  || '';
-  const tax       = $('bill-tax')?.textContent       || '';
-  const total     = $('bill-total')?.textContent     || '';
-  const payStatus = $('bill-pay-status')?.textContent|| 'Paid';
-  const pkgVal    = $('bill-package-val')?.textContent || '';
+  // Gather current bill data directly from modal DOM for 100% synchronization
+  const billNo       = $('bill-id')?.textContent        || '';
+  const billDT       = $('bill-datetime')?.textContent  || '';
+  const custName     = $('bill-cust-name')?.textContent || '';
+  const custPhone    = $('bill-cust-phone')?.textContent|| '';
+  const service      = $('bill-service')?.textContent   || '';
+  const stylist      = $('bill-stylist')?.textContent   || '';
+  const date         = $('bill-date')?.textContent      || '';
+  const time         = $('bill-time')?.textContent      || '';
+  const duration     = $('bill-duration')?.textContent  || '';
+  const payMode      = $('bill-pay-mode')?.textContent  || 'UPI';
+  const price        = $('bill-price')?.textContent     || '';
+  const discount     = $('bill-discount')?.textContent  || '';
+  const isDiscShown  = $('bill-service-discount-row')?.style.display !== 'none';
+  const taxable      = $('bill-taxable-amount')?.textContent || price;
+  const treatmentTxt = $('bill-tax-treatment')?.textContent || 'Intra-State (Karnataka)';
+  const cgstVal      = $('bill-cgst')?.textContent      || '₹0.00';
+  const sgstVal      = $('bill-sgst')?.textContent      || '₹0.00';
+  const igstVal      = $('bill-igst')?.textContent      || '₹0.00';
+  const isCgstShown  = $('bill-cgst-row')?.style.display !== 'none';
+  const isSgstShown  = $('bill-sgst-row')?.style.display !== 'none';
+  const isIgstShown  = $('bill-igst-row')?.style.display !== 'none';
+  const total        = $('bill-total')?.textContent     || '';
+  const payStatus    = $('bill-pay-status')?.textContent|| 'PAID';
+  const pkgVal       = $('bill-package-val')?.textContent || '';
   const isPkgVisible = $('bill-package-row')?.style.display !== 'none';
+  const isRegistered = DB.businessConfig?.gstRegistered !== false;
 
   const printWin = window.open('', '_blank', 'width=380,height=720');
   printWin.document.write(`
@@ -1291,10 +1641,7 @@ function printBill(){
   <title>Receipt</title>
   <meta charset="UTF-8">
   <style>
-    @page {
-      size: 80mm auto;
-      margin: 4mm 4mm;
-    }
+    @page { size: 80mm auto; margin: 4mm 4mm; }
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       font-family: 'Courier New', Courier, monospace;
@@ -1341,11 +1688,11 @@ function printBill(){
     <div style="font-size:10px">RMP Quarters Rd, LIG 3rd Stage, Kuvempu Nagara,</div>
     <div style="font-size:10px">Mysuru, Karnataka 570023</div>
     <div style="font-size:10px">Ph: +91 98765 43210</div>
-    <div style="font-size:10px">GSTIN: 29AAACS1234A1Z5</div>
+    ${isRegistered ? `<div style="font-size:10px">GSTIN: ${DB.businessConfig?.gstin || '29AAACS1234A1Z5'}</div>` : ''}
   </div>
 
   <div class="dline"></div>
-  <div class="center bold large">TAX INVOICE / RECEIPT</div>
+  <div class="center bold large">${isRegistered ? 'TAX INVOICE / RECEIPT' : 'INVOICE / RECEIPT'}</div>
   <div class="dline"></div>
 
   <!-- BILL META -->
@@ -1375,11 +1722,15 @@ function printBill(){
 
   <div class="line"></div>
 
-  <!-- AMOUNT -->
+  <!-- AMOUNT BREAKDOWN -->
   <div class="section-title">Amount Breakdown</div>
   <div class="row"><span>Service Price</span><span>${price}</span></div>
-  <div class="row"><span>Discount</span><span>${discount}</span></div>
-  <div class="row"><span>GST / Tax (5%)</span><span>${tax}</span></div>
+  ${isDiscShown ? `<div class="row"><span>Service Discount</span><span>${discount}</span></div>` : ''}
+  <div class="row"><span>Taxable Amount</span><span>${taxable}</span></div>
+  <div class="row" style="font-size:10px;color:#333"><span>Supply</span><span>${treatmentTxt}</span></div>
+  ${isCgstShown ? `<div class="row"><span>CGST (2.5%)</span><span>${cgstVal}</span></div>` : ''}
+  ${isSgstShown ? `<div class="row"><span>SGST (2.5%)</span><span>${sgstVal}</span></div>` : ''}
+  ${isIgstShown ? `<div class="row"><span>IGST (5.0%)</span><span>${igstVal}</span></div>` : ''}
 
   <div class="total-row">
     <span>TOTAL</span>
@@ -1402,7 +1753,6 @@ function printBill(){
     <div style="font-size:10px">Powered by Swarna POS v1.0</div>
   </div>
 
-  <!-- auto-print -->
   <script>
     window.onload = function() {
       window.print();
@@ -1634,6 +1984,10 @@ function deleteAnnualMember(phone, role){
 
 // ===== WALK-IN BOOKING =====
 function confirmWalkIn(){
+  if(confirmWalkIn._busy) return;
+  confirmWalkIn._busy = true;
+  const resetBusy = () => { confirmWalkIn._busy = false; };
+
   const name   = $('walkin-name').value.trim();
   const phone  = $('walkin-phone').value.trim();
   const svcId  = parseInt($('walkin-service').value);
@@ -1644,8 +1998,8 @@ function confirmWalkIn(){
   const time   = $('walkin-time').value;
   const method = $('walkin-payment').value;
 
-  if(!name){ toast('Enter customer name','error'); return; }
-  if(!date||!time){ toast('Select date and time','error'); return; }
+  if(!name){ toast('Enter customer name','error'); resetBusy(); return; }
+  if(!date||!time){ toast('Select date and time','error'); resetBusy(); return; }
 
   // Find or create customer by phone
   let user = phone ? DB.users.find(u => u.phone === phone) : null;
@@ -1659,8 +2013,12 @@ function confirmWalkIn(){
 
   const svc = DB.services.find(s => s.id === svcId);
   const price = manualPrice > 0 ? manualPrice : (svc ? getDiscountedPrice(svc) : 0);
-  const tax   = Math.round(price * 0.05);
-  const total = price + tax;
+  const serviceDiscount = parseFloat($('walkin-discount')?.value) || 0;
+  const treatment = $('walkin-tax-treatment')?.value || 'intra';
+  const isReg = DB.businessConfig?.gstRegistered !== false;
+
+  const taxableAmount = Math.max(0, price - serviceDiscount);
+  const tax = calculateTax(taxableAmount, treatment, isReg);
 
   // Find staff if matches name
   const matchedStaff = DB.staff.find(s => s.name.toLowerCase() === stylistName.toLowerCase());
@@ -1676,7 +2034,7 @@ function confirmWalkIn(){
         package: 'Annual Wellness Package',
         totalSessions: 12,
         sessionsCompleted: 1,
-        amount: price,
+        amount: tax.finalTotal,
         startDate: new Date().toISOString().split('T')[0],
         status: 'Active'
       };
@@ -1701,9 +2059,19 @@ function confirmWalkIn(){
     date,
     time,
     duration: svc?.duration || 60,
-    amount: total,
-    discount: 0,
-    tax,
+    amount: tax.finalTotal,
+    serviceDiscount: serviceDiscount,
+    taxableAmount: taxableAmount,
+    gstRate: tax.gstRate,
+    gstAmount: tax.gstAmount,
+    cgst: tax.cgst,
+    sgst: tax.sgst,
+    igst: tax.igst,
+    taxTreatment: tax.treatmentLabel,
+    gstRegistered: isReg,
+    gstDiscount: 0,
+    discount: serviceDiscount,
+    tax: tax.gstAmount,
     paymentMethod: method,
     paymentStatus: 'Paid',
     transactionId: 'WLK' + Date.now().toString().slice(-6),
@@ -1712,15 +2080,33 @@ function confirmWalkIn(){
     annualSessionNumber: member ? member.sessionsCompleted : undefined,
     sessionCounted: isAnnual,
     status: 'Confirmed',
-    createdAt: new Date().toISOString().split('T')[0]
+    createdAt: new Date().toISOString().split('T')[0],
+    customerName: name,
+    customerPhone: phone || 'N/A'
   };
 
   DB.appointments.push(appt);
   saveDB();
 
+  // Persist walk-in to backend asynchronously (non-blocking)
+  apiCreateWalkinAppointment(appt).then(serverAppt => {
+    resetBusy();
+    if(serverAppt && !serverAppt.error){
+      console.log('[WalkIn] Saved to backend, _id:', serverAppt._id);
+    } else {
+      console.warn('[WalkIn] Backend save failed, kept locally:', serverAppt?.error);
+    }
+  }).catch(e => {
+    resetBusy();
+    console.warn('[WalkIn] Backend save error:', e);
+  });
+
   closeModal('walkin-modal');
   // Reset modal
   ['walkin-name','walkin-phone','walkin-staff','walkin-price'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
+  const discountInput = $('walkin-discount'); if(discountInput) discountInput.value = '0';
+  const taxTreatmentSel = $('walkin-tax-treatment'); if(taxTreatmentSel) taxTreatmentSel.value = 'intra';
+  const preview = $('walkin-price-preview'); if(preview) preview.innerHTML = '';
   const annualCheck = $('walkin-annual');
   if(annualCheck) annualCheck.checked = false;
   const badge = $('walkin-annual-badge');

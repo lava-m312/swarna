@@ -2,7 +2,7 @@
 // CHANGED sw.js on every deploy and installs the new worker automatically.
 // BUILD_TIMESTAMP is replaced at deploy-time by the vercel.json build step
 // — but even without that, every Git push changes this file, triggering an update.
-const CACHE_NAME = 'swarna-spa-v1.0.2-20261112';
+const CACHE_NAME = 'swarna-spa-v1.0.4-20261112-legal-gst';
 
 const STATIC_ASSETS = [
   '/',

@@ -53,6 +53,18 @@ const DB = {
   expenses: [],
   attendance: [],
   annualMembers: [],
+  businessConfig: {
+    name: "Swarna's Unisex Saloon & Spa",
+    gstRegistered: true,
+    gstin: '29AAACS1234A1Z5',
+    state: 'Karnataka',
+    stateCode: '29',
+    serviceCategory: 'Group 99972 - Beauty and Physical Well-being Services',
+    defaultGstRate: 5,
+    cgstRate: 2.5,
+    sgstRate: 2.5,
+    igstRate: 5.0
+  },
   billCounter: 1,
   nextId: { user: 3, appointment: 1001, review: 1, coupon: 1, expense: 1, attendance: 1 },
 };
@@ -96,6 +108,7 @@ async function loadDB() {
       if (data.memberships && data.memberships.length) DB.memberships = data.memberships;
       if (data.branches && data.branches.length) DB.branches = data.branches;
       if (data.annualMembers) DB.annualMembers = data.annualMembers;
+      if (data.businessConfig) DB.businessConfig = data.businessConfig;
       if (data.billCounter) DB.billCounter = data.billCounter;
       ensureMassageServices();
       saveDB();
@@ -363,26 +376,83 @@ async function apiAddAttendance(data) {
   return rec;
 }
 
-async function apiUpdateApptStatus(id, status) {
+async function apiUpdateApptFull(id, updateObj) {
+  // id can be numeric appointment id OR MongoDB _id string
   try {
     const res = await fetch(`${API_BASE_URL}/appointments/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
+      body: JSON.stringify(updateObj)
     });
     if (res.ok) {
       const updated = await res.json();
-      const idx = DB.appointments.findIndex(a => a.id === id);
+      // Update in local DB by both _id and numeric id
+      const idx = DB.appointments.findIndex(a => (a._id && a._id === updated._id) || a.id === updated.id);
       if (idx !== -1) DB.appointments[idx] = updated;
+      else DB.appointments.push(updated); // new record from server
       saveDB();
       return updated;
+    } else {
+      const err = await res.json();
+      return { error: err.error || 'Update failed' };
     }
   } catch (e) {
-    console.warn('API update appt status failed');
+    console.warn('apiUpdateApptFull failed, updating locally', e);
+    // Local fallback: find by numeric id
+    const a = DB.appointments.find(x => x.id === Number(id) || x._id === id);
+    if (a) { Object.assign(a, updateObj); saveDB(); }
+    return a || { error: 'Appointment not found locally' };
   }
-  const a = DB.appointments.find(x => x.id === id);
-  if (a) { a.status = status; saveDB(); }
-  return a;
+}
+
+async function apiUpdateApptStatus(id, status) {
+  return apiUpdateApptFull(id, { status });
+}
+
+async function apiLoadRecentAppointments(days = 90) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/appointments/recent?days=${days}`);
+    if (res.ok) {
+      const data = await res.json();
+      // Merge fetched appointments into DB without duplicating
+      const fetchedIds = new Set(data.map(a => a._id || String(a.id)));
+      DB.appointments = [
+        ...DB.appointments.filter(a => !fetchedIds.has(a._id || String(a.id))),
+        ...data
+      ];
+      saveDB();
+      return data;
+    }
+  } catch (e) {
+    console.warn('apiLoadRecentAppointments failed, using local cache', e);
+  }
+  return DB.appointments;
+}
+
+async function apiCreateWalkinAppointment(apptData) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/appointments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(apptData)
+    });
+    if (res.ok) {
+      const resp = await res.json();
+      const serverAppt = resp.appointment || resp;
+      // Replace the locally-pushed copy with the server copy (which has _id)
+      const localIdx = DB.appointments.findIndex(a => a.id === apptData.id);
+      if (localIdx !== -1) DB.appointments[localIdx] = serverAppt;
+      else DB.appointments.push(serverAppt);
+      saveDB();
+      return serverAppt;
+    } else {
+      const err = await res.json();
+      return { error: err.error || 'Failed to save walk-in appointment' };
+    }
+  } catch (e) {
+    console.warn('apiCreateWalkinAppointment failed, keeping local', e);
+    return apptData; // already in DB.appointments from caller
+  }
 }
 
 async function apiToggleService(id) {
