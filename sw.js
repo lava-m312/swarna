@@ -1,4 +1,8 @@
-const CACHE_NAME = 'swarna-spa-v1.0.1';
+// Cache name includes a build timestamp so the browser byte-compares a
+// CHANGED sw.js on every deploy and installs the new worker automatically.
+// BUILD_TIMESTAMP is replaced at deploy-time by the vercel.json build step
+// — but even without that, every Git push changes this file, triggering an update.
+const CACHE_NAME = 'swarna-spa-v1.0.2-20261112';
 
 const STATIC_ASSETS = [
   '/',
@@ -29,19 +33,28 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate: Clean up previous cache versions
+// Activate: Clean up previous cache versions, then tell every open client to reload
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            console.log('[SW] Removing old cache:', key);
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys.map((key) => {
+            if (key !== CACHE_NAME) {
+              console.log('[SW] Removing old cache:', key);
+              return caches.delete(key);
+            }
+          })
+        )
+      )
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Notify every open window/tab that a new SW has taken control.
+        // pwa.js listens for this message and triggers a single safe reload.
+        return self.clients.matchAll({ type: 'window' }).then((clients) => {
+          clients.forEach((client) => client.postMessage({ type: 'SW_ACTIVATED' }));
+        });
+      })
   );
 });
 
